@@ -20,6 +20,10 @@ args = "InfoGather Tool"
 task = "workflow.run"
 args = "pentester_demo"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "InfoGather Web Dashboard"
+
 [[workflows.workflow]]
 name = "InfoGather Tool"
 author = "agent"
@@ -35,6 +39,15 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pip install python-nmap requests dnspython python-whois cryptography jinja2 && python pentester.py --help"
+
+[[workflows.workflow]]
+name = "InfoGather Web Dashboard"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python web_dashboard.py"
+waitForPort = 5000
 
 [deployment]
 run = ["sh", "-c", "pip install python-nmap requests dnspython python-whois cryptography jinja2 && python pentester.py --help"]

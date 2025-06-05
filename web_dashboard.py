@@ -501,6 +501,82 @@ def export_report(scan_id):
     else:
         return jsonify({'error': 'Unsupported format'}), 400
 
+@app.route('/api/dashboard_stats')
+@require_auth
+def dashboard_stats():
+    """Get dashboard statistics"""
+    user_id = session['user_id']
+    
+    conn = sqlite3.connect('infogather.db')
+    cursor = conn.cursor()
+    
+    # Get scan counts
+    cursor.execute('SELECT COUNT(*) FROM scans WHERE user_id = ?', (user_id,))
+    total_scans = cursor.fetchone()[0]
+    
+    cursor.execute('SELECT COUNT(*) FROM scans WHERE user_id = ? AND status = ?', (user_id, 'completed'))
+    completed_scans = cursor.fetchone()[0]
+    
+    cursor.execute('SELECT COUNT(*) FROM scans WHERE user_id = ? AND status = ?', (user_id, 'running'))
+    running_scans = cursor.fetchone()[0]
+    
+    # Get recent scans
+    cursor.execute(
+        'SELECT id, target, status, started_at FROM scans WHERE user_id = ? ORDER BY started_at DESC LIMIT 5',
+        (user_id,)
+    )
+    recent_scans = []
+    for row in cursor.fetchall():
+        recent_scans.append({
+            'id': row[0],
+            'target': row[1],
+            'status': row[2],
+            'started_at': row[3]
+        })
+    
+    # Generate activity data for chart (last 7 days)
+    from datetime import datetime, timedelta
+    today = datetime.now()
+    activity_data = {
+        'labels': [],
+        'values': []
+    }
+    
+    for i in range(6, -1, -1):
+        date = today - timedelta(days=i)
+        date_str = date.strftime('%Y-%m-%d')
+        activity_data['labels'].append(date.strftime('%m/%d'))
+        
+        cursor.execute(
+            'SELECT COUNT(*) FROM scans WHERE user_id = ? AND DATE(started_at) = ?',
+            (user_id, date_str)
+        )
+        count = cursor.fetchone()[0]
+        activity_data['values'].append(count)
+    
+    conn.close()
+    
+    # Calculate critical findings (placeholder for now)
+    critical_findings = 0
+    for scan_id, results in scan_results.items():
+        if 'summary' in results:
+            critical_findings += results['summary'].get('critical_issues', 0)
+    
+    return jsonify({
+        'total_scans': total_scans,
+        'completed_scans': completed_scans,
+        'running_scans': running_scans,
+        'critical_findings': critical_findings,
+        'recent_scans': recent_scans,
+        'activity_data': activity_data,
+        'findings_summary': {
+            'critical': critical_findings,
+            'high': 0,
+            'medium': 0,
+            'low': 0
+        }
+    })
+
 @app.route('/api/delete_scan/<scan_id>', methods=['DELETE'])
 @require_auth
 def delete_scan(scan_id):
