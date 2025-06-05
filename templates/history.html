@@ -1,0 +1,353 @@
+{% extends "base.html" %}
+
+{% block title %}Scan History - InfoGather{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <h1><i class="fas fa-history"></i> Scan History</h1>
+            <a href="{{ url_for('scan_page') }}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> New Scan
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5><i class="fas fa-list"></i> Your Scans</h5>
+                    <div class="input-group" style="width: 300px;">
+                        <input type="text" class="form-control" id="search-input" placeholder="Search scans...">
+                        <button class="btn btn-outline-secondary" onclick="searchScans()">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if scans %}
+                <div class="table-responsive">
+                    <table class="table table-hover" id="scans-table">
+                        <thead>
+                            <tr>
+                                <th>Target</th>
+                                <th>Modules</th>
+                                <th>Status</th>
+                                <th>Started</th>
+                                <th>Duration</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for scan in scans %}
+                            <tr data-scan-id="{{ scan.id }}">
+                                <td>
+                                    <strong>{{ scan.target }}</strong>
+                                </td>
+                                <td>
+                                    <div class="d-flex flex-wrap gap-1">
+                                        {% for module in scan.modules %}
+                                        <span class="badge bg-secondary">{{ module.replace('_', ' ').title() }}</span>
+                                        {% endfor %}
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if scan.status == 'completed' %}
+                                    <span class="badge bg-success">
+                                        <i class="fas fa-check"></i> Completed
+                                    </span>
+                                    {% elif scan.status == 'running' %}
+                                    <span class="badge bg-warning">
+                                        <i class="fas fa-spinner fa-spin"></i> Running
+                                    </span>
+                                    {% elif scan.status == 'failed' %}
+                                    <span class="badge bg-danger">
+                                        <i class="fas fa-times"></i> Failed
+                                    </span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">{{ scan.status.title() }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span title="{{ scan.started_at }}">
+                                        {{ moment(scan.started_at).fromNow() if scan.started_at else 'N/A' }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if scan.completed_at and scan.started_at %}
+                                    {{ calculate_duration(scan.started_at, scan.completed_at) }}
+                                    {% elif scan.status == 'running' %}
+                                    <span class="text-muted">Running...</span>
+                                    {% else %}
+                                    <span class="text-muted">N/A</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        {% if scan.status == 'completed' %}
+                                        <a href="{{ url_for('results_page', scan_id=scan.id) }}" 
+                                           class="btn btn-outline-primary" title="View Results">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        <button class="btn btn-outline-success" 
+                                                onclick="exportScan('{{ scan.id }}', 'json')" title="Export JSON">
+                                            <i class="fas fa-download"></i>
+                                        </button>
+                                        {% elif scan.status == 'running' %}
+                                        <button class="btn btn-outline-info" 
+                                                onclick="viewProgress('{{ scan.id }}')" title="View Progress">
+                                            <i class="fas fa-chart-line"></i>
+                                        </button>
+                                        {% endif %}
+                                        <button class="btn btn-outline-danger" 
+                                                onclick="deleteScan('{{ scan.id }}')" title="Delete">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-search fa-4x text-muted mb-3"></i>
+                    <h4 class="text-muted">No Scans Yet</h4>
+                    <p class="text-muted">You haven't run any security scans yet.</p>
+                    <a href="{{ url_for('scan_page') }}" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Start Your First Scan
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Progress Modal -->
+<div class="modal fade" id="progress-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-chart-line"></i> Scan Progress
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Target:</label>
+                    <span id="modal-target" class="fw-bold"></span>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Current Module:</label>
+                    <span id="modal-module" class="badge bg-primary"></span>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Progress:</label>
+                    <div class="progress">
+                        <div id="modal-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                             role="progressbar" style="width: 0%"></div>
+                    </div>
+                    <small class="text-muted" id="modal-progress-text">0%</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="delete-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle text-danger"></i> Confirm Delete
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete this scan? This action cannot be undone.</p>
+                <p><strong>Target:</strong> <span id="delete-target"></span></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirm-delete-btn">
+                    <i class="fas fa-trash"></i> Delete
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentDeleteScanId = null;
+let progressModal = null;
+let deleteModal = null;
+
+function searchScans() {
+    const searchTerm = document.getElementById('search-input').value.toLowerCase();
+    const table = document.getElementById('scans-table');
+    const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+    
+    for (let row of rows) {
+        const target = row.cells[0].textContent.toLowerCase();
+        const modules = row.cells[1].textContent.toLowerCase();
+        
+        if (target.includes(searchTerm) || modules.includes(searchTerm)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    }
+}
+
+function exportScan(scanId, format) {
+    window.open(`/api/export_report/${scanId}?format=${format}`, '_blank');
+}
+
+function viewProgress(scanId) {
+    fetch(`/api/scan_status/${scanId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert('Error: ' + data.error);
+                return;
+            }
+            
+            document.getElementById('modal-target').textContent = data.target;
+            document.getElementById('modal-module').textContent = data.current_module || 'Initializing...';
+            document.getElementById('modal-progress-bar').style.width = data.progress + '%';
+            document.getElementById('modal-progress-text').textContent = Math.round(data.progress) + '%';
+            
+            progressModal.show();
+            
+            // Start polling for updates if scan is running
+            if (data.status === 'running') {
+                startProgressPolling(scanId);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Failed to get scan progress');
+        });
+}
+
+function startProgressPolling(scanId) {
+    const interval = setInterval(() => {
+        fetch(`/api/scan_status/${scanId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.status !== 'running') {
+                    clearInterval(interval);
+                    progressModal.hide();
+                    
+                    if (data.status === 'completed') {
+                        if (confirm('Scan completed! Would you like to view the results?')) {
+                            window.location.href = `/results/${scanId}`;
+                        } else {
+                            location.reload();
+                        }
+                    } else {
+                        alert('Scan ' + data.status);
+                        location.reload();
+                    }
+                    return;
+                }
+                
+                document.getElementById('modal-module').textContent = data.current_module || 'Processing...';
+                document.getElementById('modal-progress-bar').style.width = data.progress + '%';
+                document.getElementById('modal-progress-text').textContent = Math.round(data.progress) + '%';
+            })
+            .catch(error => {
+                console.error('Error polling progress:', error);
+                clearInterval(interval);
+            });
+    }, 2000);
+}
+
+function deleteScan(scanId) {
+    currentDeleteScanId = scanId;
+    
+    // Get target name from table row
+    const row = document.querySelector(`tr[data-scan-id="${scanId}"]`);
+    const target = row.cells[0].textContent.trim();
+    
+    document.getElementById('delete-target').textContent = target;
+    deleteModal.show();
+}
+
+function confirmDelete() {
+    if (!currentDeleteScanId) return;
+    
+    fetch(`/api/delete_scan/${currentDeleteScanId}`, {
+        method: 'DELETE'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert('Error: ' + data.error);
+        } else {
+            deleteModal.hide();
+            location.reload();
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to delete scan');
+    });
+}
+
+// Initialize modals and event listeners
+document.addEventListener('DOMContentLoaded', function() {
+    progressModal = new bootstrap.Modal(document.getElementById('progress-modal'));
+    deleteModal = new bootstrap.Modal(document.getElementById('delete-modal'));
+    
+    // Add event listener for delete confirmation
+    document.getElementById('confirm-delete-btn').addEventListener('click', confirmDelete);
+    
+    // Add search on enter key
+    document.getElementById('search-input').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            searchScans();
+        }
+    });
+    
+    // Auto-refresh for running scans
+    const runningScans = document.querySelectorAll('.badge.bg-warning');
+    if (runningScans.length > 0) {
+        setTimeout(() => {
+            location.reload();
+        }, 30000); // Refresh every 30 seconds if there are running scans
+    }
+});
+
+// Helper function to format date/time
+function formatDateTime(dateString) {
+    if (!dateString) return 'N/A';
+    
+    const date = new Date(dateString);
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+}
+
+// Update displayed times on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const timeElements = document.querySelectorAll('span[title]');
+    timeElements.forEach(element => {
+        const title = element.getAttribute('title');
+        if (title && title.includes('-')) {
+            element.textContent = formatDateTime(title);
+        }
+    });
+});
+</script>
+{% endblock %}

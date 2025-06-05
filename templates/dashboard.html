@@ -1,0 +1,281 @@
+{% extends "base.html" %}
+
+{% block title %}InfoGather Dashboard{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <h1><i class="fas fa-tachometer-alt"></i> Security Dashboard</h1>
+            <a href="{{ url_for('scan_page') }}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> New Scan
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 id="total-scans">0</h4>
+                        <p class="mb-0">Total Scans</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-search fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 id="completed-scans">0</h4>
+                        <p class="mb-0">Completed</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-check-circle fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 id="running-scans">0</h4>
+                        <p class="mb-0">Running</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-spinner fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-danger text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 id="critical-findings">0</h4>
+                        <p class="mb-0">Critical Issues</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-exclamation-triangle fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-chart-line"></i> Recent Scan Activity</h5>
+            </div>
+            <div class="card-body">
+                <div id="activity-chart-container">
+                    <canvas id="activity-chart" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-clock"></i> Recent Scans</h5>
+            </div>
+            <div class="card-body">
+                <div id="recent-scans">
+                    <div class="text-center text-muted">
+                        <i class="fas fa-search fa-3x mb-3"></i>
+                        <p>No recent scans</p>
+                        <a href="{{ url_for('scan_page') }}" class="btn btn-outline-primary">
+                            Start Your First Scan
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-exclamation-triangle"></i> Security Findings Overview</h5>
+            </div>
+            <div class="card-body">
+                <div id="findings-overview">
+                    <div class="text-center text-muted">
+                        <i class="fas fa-shield-alt fa-3x mb-3"></i>
+                        <p>No security findings yet</p>
+                        <small>Run scans to discover security issues</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Dashboard JavaScript
+let activityChart = null;
+
+function loadDashboardData() {
+    fetch('/api/dashboard_stats')
+        .then(response => response.json())
+        .then(data => {
+            updateStatistics(data);
+            updateRecentScans(data.recent_scans);
+            updateActivityChart(data.activity_data);
+            updateFindingsOverview(data.findings);
+        })
+        .catch(error => {
+            console.error('Error loading dashboard data:', error);
+        });
+}
+
+function updateStatistics(data) {
+    document.getElementById('total-scans').textContent = data.total_scans || 0;
+    document.getElementById('completed-scans').textContent = data.completed_scans || 0;
+    document.getElementById('running-scans').textContent = data.running_scans || 0;
+    document.getElementById('critical-findings').textContent = data.critical_findings || 0;
+}
+
+function updateRecentScans(scans) {
+    const container = document.getElementById('recent-scans');
+    
+    if (!scans || scans.length === 0) {
+        container.innerHTML = `
+            <div class="text-center text-muted">
+                <i class="fas fa-search fa-3x mb-3"></i>
+                <p>No recent scans</p>
+                <a href="/scan" class="btn btn-outline-primary">
+                    Start Your First Scan
+                </a>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    scans.slice(0, 5).forEach(scan => {
+        const statusClass = scan.status === 'completed' ? 'success' : 
+                           scan.status === 'running' ? 'warning' : 'danger';
+        
+        html += `
+            <div class="d-flex justify-content-between align-items-center mb-3 p-2 border rounded">
+                <div>
+                    <strong>${scan.target}</strong>
+                    <br>
+                    <small class="text-muted">${scan.started_at}</small>
+                </div>
+                <span class="badge bg-${statusClass}">${scan.status}</span>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+function updateActivityChart(data) {
+    const ctx = document.getElementById('activity-chart').getContext('2d');
+    
+    if (activityChart) {
+        activityChart.destroy();
+    }
+    
+    activityChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: data?.labels || [],
+            datasets: [{
+                label: 'Scans per Day',
+                data: data?.values || [],
+                borderColor: 'rgb(75, 192, 192)',
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                tension: 0.1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+function updateFindingsOverview(findings) {
+    const container = document.getElementById('findings-overview');
+    
+    if (!findings || findings.length === 0) {
+        container.innerHTML = `
+            <div class="text-center text-muted">
+                <i class="fas fa-shield-alt fa-3x mb-3"></i>
+                <p>No security findings yet</p>
+                <small>Run scans to discover security issues</small>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '<div class="row">';
+    
+    const severityColors = {
+        critical: 'danger',
+        high: 'warning',
+        medium: 'info',
+        low: 'secondary'
+    };
+    
+    Object.entries(findings).forEach(([severity, count]) => {
+        if (count > 0) {
+            html += `
+                <div class="col-md-3 mb-3">
+                    <div class="card border-${severityColors[severity]}">
+                        <div class="card-body text-center">
+                            <h3 class="text-${severityColors[severity]}">${count}</h3>
+                            <p class="mb-0">${severity.charAt(0).toUpperCase() + severity.slice(1)}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+    });
+    
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+// Load dashboard data on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadDashboardData();
+    
+    // Refresh every 30 seconds
+    setInterval(loadDashboardData, 30000);
+});
+</script>
+{% endblock %}

@@ -1,0 +1,521 @@
+{% extends "base.html" %}
+
+{% block title %}Scan Results - InfoGather{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <h1><i class="fas fa-chart-bar"></i> Scan Results</h1>
+            <div>
+                <button class="btn btn-outline-primary" onclick="exportReport('json')">
+                    <i class="fas fa-download"></i> Export JSON
+                </button>
+                <button class="btn btn-outline-success" onclick="exportReport('html')">
+                    <i class="fas fa-file-code"></i> Export HTML
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="results-container">
+    <div class="text-center">
+        <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading results...</span>
+        </div>
+        <p class="mt-2">Loading scan results...</p>
+    </div>
+</div>
+
+<!-- Results Template (Hidden) -->
+<div id="results-template" style="display: none;">
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-danger text-white">
+                <div class="card-body text-center">
+                    <h3 id="critical-count">0</h3>
+                    <p class="mb-0">Critical</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body text-center">
+                    <h3 id="high-count">0</h3>
+                    <p class="mb-0">High</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body text-center">
+                    <h3 id="medium-count">0</h3>
+                    <p class="mb-0">Medium</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-secondary text-white">
+                <div class="card-body text-center">
+                    <h3 id="low-count">0</h3>
+                    <p class="mb-0">Low</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <ul class="nav nav-tabs card-header-tabs" id="results-tabs">
+                        <li class="nav-item">
+                            <a class="nav-link active" data-bs-toggle="tab" href="#overview-tab">
+                                <i class="fas fa-eye"></i> Overview
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" data-bs-toggle="tab" href="#network-tab">
+                                <i class="fas fa-network-wired"></i> Network
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" data-bs-toggle="tab" href="#dns-tab">
+                                <i class="fas fa-globe"></i> DNS
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" data-bs-toggle="tab" href="#ssl-tab">
+                                <i class="fas fa-lock"></i> SSL/TLS
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" data-bs-toggle="tab" href="#vulns-tab">
+                                <i class="fas fa-bug"></i> Vulnerabilities
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" data-bs-toggle="tab" href="#advanced-tab">
+                                <i class="fas fa-search-plus"></i> Advanced
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+                <div class="card-body">
+                    <div class="tab-content">
+                        <div class="tab-pane fade show active" id="overview-tab">
+                            <div id="overview-content"></div>
+                        </div>
+                        <div class="tab-pane fade" id="network-tab">
+                            <div id="network-content"></div>
+                        </div>
+                        <div class="tab-pane fade" id="dns-tab">
+                            <div id="dns-content"></div>
+                        </div>
+                        <div class="tab-pane fade" id="ssl-tab">
+                            <div id="ssl-content"></div>
+                        </div>
+                        <div class="tab-pane fade" id="vulns-tab">
+                            <div id="vulns-content"></div>
+                        </div>
+                        <div class="tab-pane fade" id="advanced-tab">
+                            <div id="advanced-content"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-info-circle"></i> Scan Information</h5>
+                </div>
+                <div class="card-body" id="scan-info">
+                </div>
+            </div>
+            
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5><i class="fas fa-exclamation-triangle"></i> Top Findings</h5>
+                </div>
+                <div class="card-body" id="top-findings">
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const scanId = '{{ scan_id }}';
+let scanResults = null;
+
+function loadScanResults() {
+    fetch(`/api/scan_results/${scanId}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to load results');
+            }
+            return response.json();
+        })
+        .then(data => {
+            scanResults = data;
+            displayResults(data);
+        })
+        .catch(error => {
+            console.error('Error loading results:', error);
+            document.getElementById('results-container').innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    Failed to load scan results: ${error.message}
+                </div>
+            `;
+        });
+}
+
+function displayResults(data) {
+    // Copy template and show it
+    const template = document.getElementById('results-template');
+    const container = document.getElementById('results-container');
+    container.innerHTML = template.innerHTML;
+    
+    // Update summary counts
+    const summary = data.summary || {};
+    document.getElementById('critical-count').textContent = summary.critical_issues || 0;
+    document.getElementById('high-count').textContent = summary.high_issues || 0;
+    document.getElementById('medium-count').textContent = summary.medium_issues || 0;
+    document.getElementById('low-count').textContent = summary.low_issues || 0;
+    
+    // Update scan information
+    updateScanInfo(data);
+    
+    // Update tab contents
+    updateOverviewTab(data);
+    updateNetworkTab(data.findings.network_scan);
+    updateDnsTab(data.findings.dns_enum);
+    updateSslTab(data.findings.ssl_analysis);
+    updateVulnerabilitiesTab(data.findings.vuln_scan);
+    updateAdvancedTab(data.findings);
+    
+    // Update top findings
+    updateTopFindings(data);
+}
+
+function updateScanInfo(data) {
+    const scanInfo = document.getElementById('scan-info');
+    const startTime = new Date(data.started_at).toLocaleString();
+    const completedTime = data.completed_at ? new Date(data.completed_at).toLocaleString() : 'In progress';
+    
+    scanInfo.innerHTML = `
+        <p><strong>Target:</strong> ${data.target}</p>
+        <p><strong>Started:</strong> ${startTime}</p>
+        <p><strong>Completed:</strong> ${completedTime}</p>
+        <p><strong>Modules:</strong> ${data.modules_run.join(', ')}</p>
+        <p><strong>Total Findings:</strong> ${data.summary.total_findings || 0}</p>
+    `;
+}
+
+function updateOverviewTab(data) {
+    const content = document.getElementById('overview-content');
+    const summary = data.summary || {};
+    
+    let html = `
+        <h5>Executive Summary</h5>
+        <p>Security assessment completed for <strong>${data.target}</strong> using ${data.modules_run.length} scanning modules.</p>
+        
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <h6>Key Metrics</h6>
+                <ul>
+                    <li>Open Ports: ${summary.ports_found || 0}</li>
+                    <li>Subdomains: ${summary.subdomains_found || 0}</li>
+                    <li>Vulnerabilities: ${summary.vulnerabilities_found || 0}</li>
+                </ul>
+            </div>
+            <div class="col-md-6">
+                <h6>Risk Assessment</h6>
+                <div class="progress mb-2">
+                    <div class="progress-bar bg-danger" style="width: ${(summary.critical_issues || 0) * 10}%"></div>
+                    <div class="progress-bar bg-warning" style="width: ${(summary.high_issues || 0) * 5}%"></div>
+                    <div class="progress-bar bg-info" style="width: ${(summary.medium_issues || 0) * 2}%"></div>
+                </div>
+                <small class="text-muted">Risk level based on findings</small>
+            </div>
+        </div>
+    `;
+    
+    content.innerHTML = html;
+}
+
+function updateNetworkTab(networkData) {
+    const content = document.getElementById('network-content');
+    
+    if (!networkData) {
+        content.innerHTML = '<p class="text-muted">No network scan data available</p>';
+        return;
+    }
+    
+    let html = '<h5>Network Scan Results</h5>';
+    
+    if (networkData.open_ports && networkData.open_ports.length > 0) {
+        html += `
+            <h6>Open Ports (${networkData.open_ports.length})</h6>
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Port</th>
+                            <th>Protocol</th>
+                            <th>Service</th>
+                            <th>Version</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        networkData.open_ports.forEach(port => {
+            html += `
+                <tr>
+                    <td>${port.port}</td>
+                    <td>${port.protocol || 'TCP'}</td>
+                    <td>${port.service || 'Unknown'}</td>
+                    <td>${port.version || 'N/A'}</td>
+                </tr>
+            `;
+        });
+        
+        html += '</tbody></table></div>';
+    } else {
+        html += '<p class="text-muted">No open ports found</p>';
+    }
+    
+    content.innerHTML = html;
+}
+
+function updateDnsTab(dnsData) {
+    const content = document.getElementById('dns-content');
+    
+    if (!dnsData) {
+        content.innerHTML = '<p class="text-muted">No DNS enumeration data available</p>';
+        return;
+    }
+    
+    let html = '<h5>DNS Enumeration Results</h5>';
+    
+    if (dnsData.subdomains && dnsData.subdomains.length > 0) {
+        html += `
+            <h6>Discovered Subdomains (${dnsData.subdomains.length})</h6>
+            <div class="row">
+        `;
+        
+        dnsData.subdomains.slice(0, 20).forEach(subdomain => {
+            html += `
+                <div class="col-md-6 mb-2">
+                    <span class="badge bg-primary">${subdomain}</span>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        
+        if (dnsData.subdomains.length > 20) {
+            html += `<p class="text-muted">... and ${dnsData.subdomains.length - 20} more</p>`;
+        }
+    }
+    
+    if (dnsData.dns_records) {
+        html += '<h6 class="mt-4">DNS Records</h6>';
+        Object.entries(dnsData.dns_records).forEach(([type, records]) => {
+            if (records && records.length > 0) {
+                html += `<p><strong>${type}:</strong> ${records.join(', ')}</p>`;
+            }
+        });
+    }
+    
+    content.innerHTML = html;
+}
+
+function updateSslTab(sslData) {
+    const content = document.getElementById('ssl-content');
+    
+    if (!sslData) {
+        content.innerHTML = '<p class="text-muted">No SSL analysis data available</p>';
+        return;
+    }
+    
+    let html = '<h5>SSL/TLS Analysis Results</h5>';
+    
+    if (sslData.certificates && sslData.certificates.length > 0) {
+        html += '<h6>Certificate Information</h6>';
+        sslData.certificates.forEach((cert, index) => {
+            html += `
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h6>Certificate ${index + 1}</h6>
+                        <p><strong>Subject:</strong> ${cert.subject || 'N/A'}</p>
+                        <p><strong>Issuer:</strong> ${cert.issuer || 'N/A'}</p>
+                        <p><strong>Valid From:</strong> ${cert.not_before || 'N/A'}</p>
+                        <p><strong>Valid Until:</strong> ${cert.not_after || 'N/A'}</p>
+                    </div>
+                </div>
+            `;
+        });
+    }
+    
+    content.innerHTML = html;
+}
+
+function updateVulnerabilitiesTab(vulnData) {
+    const content = document.getElementById('vulns-content');
+    
+    if (!vulnData || !vulnData.vulnerabilities) {
+        content.innerHTML = '<p class="text-muted">No vulnerability data available</p>';
+        return;
+    }
+    
+    let html = '<h5>Vulnerability Scan Results</h5>';
+    
+    if (vulnData.vulnerabilities.length > 0) {
+        vulnData.vulnerabilities.forEach(vuln => {
+            const severityClass = {
+                critical: 'danger',
+                high: 'warning',
+                medium: 'info',
+                low: 'secondary'
+            }[vuln.severity?.toLowerCase()] || 'secondary';
+            
+            html += `
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <h6>${vuln.vulnerability || 'Unknown Vulnerability'}</h6>
+                            <span class="badge bg-${severityClass}">${vuln.severity || 'Unknown'}</span>
+                        </div>
+                        <p>${vuln.description || 'No description available'}</p>
+                        ${vuln.evidence ? `<p><strong>Evidence:</strong> <code>${vuln.evidence}</code></p>` : ''}
+                        ${vuln.remediation ? `<p><strong>Remediation:</strong> ${vuln.remediation}</p>` : ''}
+                    </div>
+                </div>
+            `;
+        });
+    } else {
+        html += '<p class="text-success">No vulnerabilities found</p>';
+    }
+    
+    content.innerHTML = html;
+}
+
+function updateAdvancedTab(findings) {
+    const content = document.getElementById('advanced-content');
+    let html = '<h5>Advanced Reconnaissance Results</h5>';
+    
+    // Social Intelligence
+    if (findings.social_intel) {
+        html += '<h6>Social Engineering Intelligence</h6>';
+        const social = findings.social_intel;
+        if (social.summary) {
+            html += `
+                <ul>
+                    <li>Employees Found: ${social.summary.total_employees || 0}</li>
+                    <li>Email Patterns: ${social.summary.email_patterns_discovered || 0}</li>
+                    <li>Validated Emails: ${social.summary.validated_emails || 0}</li>
+                </ul>
+            `;
+        }
+    }
+    
+    // Advanced DNS
+    if (findings.advanced_dns) {
+        html += '<h6 class="mt-3">Advanced DNS Analysis</h6>';
+        const dns = findings.advanced_dns;
+        if (dns.summary) {
+            html += `
+                <ul>
+                    <li>DoH Resolvers Tested: ${dns.summary.doh_resolvers_tested || 0}</li>
+                    <li>Tunneling Indicators: ${dns.summary.tunneling_indicators || 0}</li>
+                    <li>Certificates Found: ${dns.summary.certificates_found || 0}</li>
+                </ul>
+            `;
+        }
+    }
+    
+    // Cloud Assets
+    if (findings.cloud_assets) {
+        html += '<h6 class="mt-3">Cloud Asset Discovery</h6>';
+        const cloud = findings.cloud_assets;
+        if (cloud.summary) {
+            html += `
+                <ul>
+                    <li>AWS Buckets: ${cloud.summary.aws_buckets_found || 0}</li>
+                    <li>Azure Storage: ${cloud.summary.azure_storage_found || 0}</li>
+                    <li>GCP Buckets: ${cloud.summary.gcp_buckets_found || 0}</li>
+                    <li>Exposed Buckets: ${cloud.summary.exposed_buckets || 0}</li>
+                </ul>
+            `;
+        }
+    }
+    
+    if (html === '<h5>Advanced Reconnaissance Results</h5>') {
+        html += '<p class="text-muted">No advanced reconnaissance data available</p>';
+    }
+    
+    content.innerHTML = html;
+}
+
+function updateTopFindings(data) {
+    const content = document.getElementById('top-findings');
+    let html = '';
+    
+    // Collect all vulnerabilities from all modules
+    const allFindings = [];
+    
+    if (data.findings.vuln_scan && data.findings.vuln_scan.vulnerabilities) {
+        allFindings.push(...data.findings.vuln_scan.vulnerabilities);
+    }
+    
+    // Sort by severity
+    const severityOrder = { critical: 4, high: 3, medium: 2, low: 1 };
+    allFindings.sort((a, b) => {
+        return (severityOrder[b.severity?.toLowerCase()] || 0) - (severityOrder[a.severity?.toLowerCase()] || 0);
+    });
+    
+    if (allFindings.length > 0) {
+        allFindings.slice(0, 5).forEach(finding => {
+            const severityClass = {
+                critical: 'danger',
+                high: 'warning',
+                medium: 'info',
+                low: 'secondary'
+            }[finding.severity?.toLowerCase()] || 'secondary';
+            
+            html += `
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <small><strong>${finding.vulnerability || 'Security Issue'}</strong></small>
+                        <span class="badge bg-${severityClass}">${finding.severity || 'Unknown'}</span>
+                    </div>
+                    <small class="text-muted">${(finding.description || '').substring(0, 100)}...</small>
+                </div>
+                <hr>
+            `;
+        });
+    } else {
+        html = '<p class="text-success">No critical findings identified</p>';
+    }
+    
+    content.innerHTML = html;
+}
+
+function exportReport(format) {
+    window.open(`/api/export_report/${scanId}?format=${format}`, '_blank');
+}
+
+// Load results when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    loadScanResults();
+});
+</script>
+{% endblock %}

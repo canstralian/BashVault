@@ -1,0 +1,441 @@
+{% extends "base.html" %}
+
+{% block title %}New Scan - InfoGather{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1><i class="fas fa-search"></i> Configure New Scan</h1>
+        <p class="text-muted">Set up a comprehensive security assessment for your target</p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-cog"></i> Scan Configuration</h5>
+            </div>
+            <div class="card-body">
+                <form id="scan-form">
+                    <div class="mb-4">
+                        <label for="target" class="form-label">
+                            <i class="fas fa-bullseye"></i> Target
+                        </label>
+                        <input type="text" class="form-control" id="target" name="target" 
+                               placeholder="example.com, 192.168.1.1, or 192.168.1.0/24" required>
+                        <div class="form-text">
+                            Enter a domain name, IP address, or CIDR range
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="ports" class="form-label">
+                            <i class="fas fa-network-wired"></i> Port Range
+                        </label>
+                        <input type="text" class="form-control" id="ports" name="ports" 
+                               value="1-1000" placeholder="1-1000, 80,443,8080">
+                        <div class="form-text">
+                            Specify ports to scan (e.g., 1-1000, 80,443,8080)
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label">
+                            <i class="fas fa-puzzle-piece"></i> Scan Modules
+                        </label>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header bg-primary text-white">
+                                        <h6 class="mb-0">Core Modules</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input" type="checkbox" id="network_scan" name="modules" value="network_scan">
+                                            <label class="form-check-label" for="network_scan">
+                                                <strong>Network Scan</strong>
+                                                <br><small class="text-muted">Port scanning and service detection</small>
+                                            </label>
+                                        </div>
+                                        
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input" type="checkbox" id="dns_enum" name="modules" value="dns_enum">
+                                            <label class="form-check-label" for="dns_enum">
+                                                <strong>DNS Enumeration</strong>
+                                                <br><small class="text-muted">Subdomain discovery and DNS analysis</small>
+                                            </label>
+                                        </div>
+                                        
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input" type="checkbox" id="whois" name="modules" value="whois">
+                                            <label class="form-check-label" for="whois">
+                                                <strong>WHOIS Lookup</strong>
+                                                <br><small class="text-muted">Domain registration information</small>
+                                            </label>
+                                        </div>
+                                        
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input" type="checkbox" id="ssl_analysis" name="modules" value="ssl_analysis">
+                                            <label class="form-check-label" for="ssl_analysis">
+                                                <strong>SSL Analysis</strong>
+                                                <br><small class="text-muted">Certificate and TLS configuration analysis</small>
+                                            </label>
+                                        </div>
+                                        
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="vuln_scan" name="modules" value="vuln_scan">
+                                            <label class="form-check-label" for="vuln_scan">
+                                                <strong>Vulnerability Scan</strong>
+                                                <br><small class="text-muted">Basic vulnerability detection</small>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header bg-warning text-dark">
+                                        <h6 class="mb-0">Advanced Reconnaissance</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input" type="checkbox" id="social_intel" name="modules" value="social_intel">
+                                            <label class="form-check-label" for="social_intel">
+                                                <strong>Social Intelligence</strong>
+                                                <br><small class="text-muted">Employee enumeration and email discovery</small>
+                                            </label>
+                                        </div>
+                                        
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input" type="checkbox" id="advanced_dns" name="modules" value="advanced_dns">
+                                            <label class="form-check-label" for="advanced_dns">
+                                                <strong>Advanced DNS</strong>
+                                                <br><small class="text-muted">DoH bypass and tunneling detection</small>
+                                            </label>
+                                        </div>
+                                        
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input" type="checkbox" id="cloud_assets" name="modules" value="cloud_assets">
+                                            <label class="form-check-label" for="cloud_assets">
+                                                <strong>Cloud Discovery</strong>
+                                                <br><small class="text-muted">AWS, Azure, GCP asset enumeration</small>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-3">
+                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="selectAllModules()">
+                                Select All
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="selectCoreModules()">
+                                Core Only
+                            </button>
+                            <button type="button" class="btn btn-outline-warning btn-sm" onclick="selectAdvancedModules()">
+                                Advanced Only
+                            </button>
+                            <button type="button" class="btn btn-outline-danger btn-sm" onclick="clearAllModules()">
+                                Clear All
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-success btn-lg" id="start-scan-btn">
+                            <i class="fas fa-play"></i> Start Security Scan
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-info-circle"></i> Scan Information</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <strong>Important:</strong> Ensure you have explicit authorization before scanning any target.
+                </div>
+                
+                <h6>Module Descriptions:</h6>
+                <ul class="list-unstyled">
+                    <li><strong>Network Scan:</strong> Discovers open ports and running services</li>
+                    <li><strong>DNS Enumeration:</strong> Finds subdomains and DNS records</li>
+                    <li><strong>WHOIS Lookup:</strong> Retrieves domain registration data</li>
+                    <li><strong>SSL Analysis:</strong> Examines SSL/TLS certificates</li>
+                    <li><strong>Vulnerability Scan:</strong> Checks for common security issues</li>
+                    <li><strong>Social Intelligence:</strong> Gathers employee and email information</li>
+                    <li><strong>Advanced DNS:</strong> Performs DNS over HTTPS bypass and tunneling detection</li>
+                    <li><strong>Cloud Discovery:</strong> Enumerates cloud storage and services</li>
+                </ul>
+                
+                <div class="mt-3">
+                    <h6>Estimated Time:</h6>
+                    <p id="estimated-time" class="text-muted">Select modules to see estimate</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5><i class="fas fa-shield-alt"></i> Security Notice</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-danger">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    This tool is for authorized security testing only.
+                </p>
+                <p>Unauthorized scanning may violate laws and regulations. Always ensure you have proper permission before conducting security assessments.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Scan Progress Modal -->
+<div class="modal fade" id="scan-progress-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-spinner fa-spin"></i> Scan in Progress
+                </h5>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Target:</label>
+                    <span id="progress-target" class="fw-bold"></span>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Current Module:</label>
+                    <span id="current-module" class="badge bg-primary"></span>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Progress:</label>
+                    <div class="progress">
+                        <div id="scan-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                             role="progressbar" style="width: 0%"></div>
+                    </div>
+                    <small class="text-muted" id="progress-percentage">0%</small>
+                </div>
+                
+                <div id="scan-log" class="bg-dark text-light p-3 rounded" style="height: 200px; overflow-y: auto;">
+                    <div class="text-success">Scan started...</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="window.location.href='/history'">
+                    View in History
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentScanId = null;
+let progressInterval = null;
+
+// Module selection functions
+function selectAllModules() {
+    document.querySelectorAll('input[name="modules"]').forEach(cb => cb.checked = true);
+    updateEstimatedTime();
+}
+
+function selectCoreModules() {
+    clearAllModules();
+    ['network_scan', 'dns_enum', 'whois', 'ssl_analysis', 'vuln_scan'].forEach(id => {
+        document.getElementById(id).checked = true;
+    });
+    updateEstimatedTime();
+}
+
+function selectAdvancedModules() {
+    clearAllModules();
+    ['social_intel', 'advanced_dns', 'cloud_assets'].forEach(id => {
+        document.getElementById(id).checked = true;
+    });
+    updateEstimatedTime();
+}
+
+function clearAllModules() {
+    document.querySelectorAll('input[name="modules"]').forEach(cb => cb.checked = false);
+    updateEstimatedTime();
+}
+
+function updateEstimatedTime() {
+    const checkedModules = document.querySelectorAll('input[name="modules"]:checked');
+    const moduleCount = checkedModules.length;
+    
+    if (moduleCount === 0) {
+        document.getElementById('estimated-time').textContent = 'Select modules to see estimate';
+        return;
+    }
+    
+    // Rough time estimates per module (in minutes)
+    const timeEstimates = {
+        network_scan: 5,
+        dns_enum: 3,
+        whois: 1,
+        ssl_analysis: 2,
+        vuln_scan: 8,
+        social_intel: 10,
+        advanced_dns: 7,
+        cloud_assets: 12
+    };
+    
+    let totalTime = 0;
+    checkedModules.forEach(cb => {
+        totalTime += timeEstimates[cb.value] || 5;
+    });
+    
+    document.getElementById('estimated-time').textContent = `Approximately ${totalTime} minutes`;
+}
+
+// Form submission
+document.getElementById('scan-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const target = document.getElementById('target').value.trim();
+    const ports = document.getElementById('ports').value.trim();
+    const checkedModules = Array.from(document.querySelectorAll('input[name="modules"]:checked'))
+                               .map(cb => cb.value);
+    
+    if (!target) {
+        alert('Please enter a target');
+        return;
+    }
+    
+    if (checkedModules.length === 0) {
+        alert('Please select at least one module');
+        return;
+    }
+    
+    // Disable form
+    document.getElementById('start-scan-btn').disabled = true;
+    document.getElementById('start-scan-btn').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Starting...';
+    
+    // Start scan
+    fetch('/api/start_scan', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            target: target,
+            ports: ports,
+            modules: checkedModules
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert('Error: ' + data.error);
+            document.getElementById('start-scan-btn').disabled = false;
+            document.getElementById('start-scan-btn').innerHTML = '<i class="fas fa-play"></i> Start Security Scan';
+        } else {
+            currentScanId = data.scan_id;
+            showProgressModal(target);
+            startProgressTracking();
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to start scan');
+        document.getElementById('start-scan-btn').disabled = false;
+        document.getElementById('start-scan-btn').innerHTML = '<i class="fas fa-play"></i> Start Security Scan';
+    });
+});
+
+function showProgressModal(target) {
+    document.getElementById('progress-target').textContent = target;
+    document.getElementById('current-module').textContent = 'Initializing...';
+    document.getElementById('scan-progress-bar').style.width = '0%';
+    document.getElementById('progress-percentage').textContent = '0%';
+    document.getElementById('scan-log').innerHTML = '<div class="text-success">Scan started...</div>';
+    
+    const modal = new bootstrap.Modal(document.getElementById('scan-progress-modal'));
+    modal.show();
+}
+
+function startProgressTracking() {
+    progressInterval = setInterval(() => {
+        if (!currentScanId) return;
+        
+        fetch(`/api/scan_status/${currentScanId}`)
+            .then(response => response.json())
+            .then(data => {
+                updateProgress(data);
+                
+                if (data.status === 'completed' || data.status === 'failed') {
+                    clearInterval(progressInterval);
+                    handleScanComplete(data);
+                }
+            })
+            .catch(error => {
+                console.error('Error checking scan status:', error);
+            });
+    }, 2000);
+}
+
+function updateProgress(data) {
+    const progress = Math.round(data.progress || 0);
+    document.getElementById('scan-progress-bar').style.width = progress + '%';
+    document.getElementById('progress-percentage').textContent = progress + '%';
+    
+    if (data.current_module) {
+        document.getElementById('current-module').textContent = data.current_module;
+        
+        // Add to log
+        const log = document.getElementById('scan-log');
+        const logEntry = document.createElement('div');
+        logEntry.className = 'text-info';
+        logEntry.textContent = `Running: ${data.current_module}`;
+        log.appendChild(logEntry);
+        log.scrollTop = log.scrollHeight;
+    }
+}
+
+function handleScanComplete(data) {
+    const log = document.getElementById('scan-log');
+    const logEntry = document.createElement('div');
+    
+    if (data.status === 'completed') {
+        logEntry.className = 'text-success';
+        logEntry.textContent = 'Scan completed successfully!';
+        
+        setTimeout(() => {
+            window.location.href = `/results/${currentScanId}`;
+        }, 2000);
+    } else {
+        logEntry.className = 'text-danger';
+        logEntry.textContent = 'Scan failed: ' + (data.error || 'Unknown error');
+    }
+    
+    log.appendChild(logEntry);
+    log.scrollTop = log.scrollHeight;
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    // Add event listeners for module checkboxes
+    document.querySelectorAll('input[name="modules"]').forEach(cb => {
+        cb.addEventListener('change', updateEstimatedTime);
+    });
+    
+    updateEstimatedTime();
+});
+</script>
+{% endblock %}
