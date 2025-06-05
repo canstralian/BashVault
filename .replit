@@ -1,0 +1,40 @@
+modules = ["python-3.11"]
+
+[nix]
+channel = "stable-24_05"
+packages = ["cacert", "cargo", "libiconv", "libxcrypt", "nmap", "openssl", "pkg-config", "rustc"]
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "InfoGather Tool"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "pentester_demo"
+
+[[workflows.workflow]]
+name = "InfoGather Tool"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pip install python-nmap requests dnspython python-whois cryptography jinja2 && python pentester.py --help"
+
+[[workflows.workflow]]
+name = "pentester_demo"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pip install python-nmap requests dnspython python-whois cryptography jinja2 && python pentester.py --help"
+
+[deployment]
+run = ["sh", "-c", "pip install python-nmap requests dnspython python-whois cryptography jinja2 && python pentester.py --help"]

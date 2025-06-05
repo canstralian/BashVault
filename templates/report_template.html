@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InfoGather - Penetration Testing Report</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f8f9fa;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+
+        .header {
+            background: linear-gradient(135deg, #007acc 0%, #0056b3 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .disclaimer {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 5px;
+            padding: 20px;
+            margin: 20px;
+            text-align: center;
+            font-weight: bold;
+            color: #856404;
+        }
+
+        .content {
+            padding: 0 40px 40px;
+        }
+
+        .executive-summary {
+            background: #f8f9fa;
+            border-left: 5px solid #007acc;
+            padding: 30px;
+            margin: 30px 0;
+        }
+
+        .executive-summary h2 {
+            color: #007acc;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+
+        .stat-card {
+            background: white;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 25px;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            transition: transform 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #007acc;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            color: #6c757d;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .target-section {
+            margin: 40px 0;
+            border: 1px solid #dee2e6;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        .target-header {
+            background: #343a40;
+            color: white;
+            padding: 20px 30px;
+            font-size: 1.4em;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+        }
+
+        .target-header .icon {
+            margin-right: 15px;
+            font-size: 1.2em;
+        }
+
+        .target-body {
+            padding: 30px;
+        }
+
+        .module-section {
+            margin-bottom: 35px;
+            border-bottom: 1px solid #e9ecef;
+            padding-bottom: 25px;
+        }
+
+        .module-section:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .module-title {
+            color: #495057;
+            font-size: 1.3em;
+            font-weight: 600;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #007acc;
+            display: flex;
+            align-items: center;
+        }
+
+        .module-title .icon {
+            margin-right: 10px;
+            color: #007acc;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .info-box {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 5px;
+            padding: 20px;
+        }
+
+        .info-box h4 {
+            color: #495057;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+
+        .info-box p, .info-box li {
+            color: #6c757d;
+            font-size: 0.95em;
+        }
+
+        .info-box ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        .info-box ul li {
+            padding: 5px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .info-box ul li:last-child {
+            border-bottom: none;
+        }
+
+        .vulnerability {
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 4px solid;
+        }
+
+        .vulnerability.critical {
+            background: #f8d7da;
+            border-left-color: #dc3545;
+        }
+
+        .vulnerability.high {
+            background: #fff3cd;
+            border-left-color: #fd7e14;
+        }
+
+        .vulnerability.medium {
+            background: #d1ecf1;
+            border-left-color: #17a2b8;
+        }
+
+        .vulnerability.low {
+            background: #d4edda;
+            border-left-color: #28a745;
+        }
+
+        .vulnerability.informational {
+            background: #e2e3e5;
+            border-left-color: #6c757d;
+        }
+
+        .vulnerability-title {
+            font-weight: bold;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .severity-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 0.8em;
+            font-weight: bold;
+            text-transform: uppercase;
+            color: white;
+        }
+
+        .severity-badge.critical { background: #dc3545; }
+        .severity-badge.high { background: #fd7e14; }
+        .severity-badge.medium { background: #17a2b8; }
+        .severity-badge.low { background: #28a745; }
+        .severity-badge.informational { background: #6c757d; }
+
+        .vulnerability-description {
+            margin-bottom: 10px;
+            color: #495057;
+        }
+
+        .vulnerability-evidence {
+            background: rgba(0,0,0,0.05);
+            padding: 10px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            margin-bottom: 10px;
+        }
+
+        .vulnerability-remediation {
+            color: #495057;
+            font-style: italic;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: white;
+            border-radius: 5px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .table th,
+        .table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+            text-transform: uppercase;
+            font-size: 0.9em;
+            letter-spacing: 0.5px;
+        }
+
+        .table tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+
+        .table tr:hover {
+            background: #e9ecef;
+        }
+
+        .recommendations {
+            background: linear-gradient(135deg, #e3f2fd 0%, #f1f8e9 100%);
+            border: 1px solid #007acc;
+            border-radius: 10px;
+            padding: 30px;
+            margin: 40px 0;
+        }
+
+        .recommendations h2 {
+            color: #007acc;
+            margin-bottom: 20px;
+            font-size: 1.6em;
+        }
+
+        .recommendations ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .recommendations li {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 10px;
+            position: relative;
+            padding-left: 50px;
+        }
+
+        .recommendations li::before {
+            content: "✓";
+            position: absolute;
+            left: 20px;
+            top: 15px;
+            color: #28a745;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+
+        .no-data {
+            text-align: center;
+            color: #6c757d;
+            font-style: italic;
+            padding: 40px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+
+        .footer {
+            background: #343a40;
+            color: white;
+            text-align: center;
+            padding: 30px;
+            margin-top: 40px;
+        }
+
+        .footer p {
+            margin-bottom: 10px;
+        }
+
+        .warning-text {
+            color: #dc3545;
+            font-weight: bold;
+        }
+
+        .success-text {
+            color: #28a745;
+            font-weight: bold;
+        }
+
+        .port-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin: 10px 0;
+        }
+
+        .port-badge {
+            background: #007acc;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 0.85em;
+            font-weight: bold;
+        }
+
+        .certificate-info {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+
+        .certificate-info h5 {
+            color: #495057;
+            margin-bottom: 10px;
+        }
+
+        .certificate-details {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 10px;
+            font-size: 0.9em;
+        }
+
+        .certificate-details dt {
+            font-weight: bold;
+            color: #495057;
+        }
+
+        .certificate-details dd {
+            color: #6c757d;
+            margin: 0;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                margin: 0;
+            }
+
+            .header {
+                padding: 20px;
+            }
+
+            .header h1 {
+                font-size: 2em;
+            }
+
+            .content {
+                padding: 0 20px 20px;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .target-header {
+                padding: 15px 20px;
+                font-size: 1.2em;
+            }
+
+            .target-body {
+                padding: 20px;
+            }
+
+            .certificate-details {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media print {
+            body {
+                background: white;
+            }
+            
+            .container {
+                box-shadow: none;
+                max-width: 100%;
+            }
+            
+            .stat-card:hover {
+                transform: none;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            }
+            
+            .table tr:hover {
+                background: transparent;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>InfoGather</h1>
+            <p>Comprehensive Penetration Testing Report</p>
+            <p>Generated on: <span id="report-date">{{ report_date }}</span></p>
+        </header>
+
+        <!-- Disclaimer -->
+        <div class="disclaimer">
+            <strong>⚠️ CONFIDENTIAL SECURITY ASSESSMENT REPORT ⚠️</strong><br>
+            This report contains sensitive security information and is intended for authorized personnel only.
+        </div>
+
+        <div class="content">
+            <!-- Executive Summary -->
+            <section class="executive-summary">
+                <h2>Executive Summary</h2>
+                <p>This penetration testing assessment was conducted to identify security vulnerabilities and assess the overall security posture of the specified targets. The assessment utilized automated scanning techniques and manual verification to provide a comprehensive security evaluation.</p>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number" id="total-targets">{{ total_targets | default('0') }}</div>
+                        <div class="stat-label">Targets Assessed</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="total-vulnerabilities">{{ total_vulnerabilities | default('0') }}</div>
+                        <div class="stat-label">Total Findings</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="critical-count">{{ critical_count | default('0') }}</div>
+                        <div class="stat-label">Critical Issues</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="high-count">{{ high_count | default('0') }}</div>
+                        <div class="stat-label">High Risk Issues</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Target Results -->
+            <section id="target-results">
+                <!-- Target sections will be dynamically inserted here -->
+            </section>
+
+            <!-- Recommendations -->
+            <section class="recommendations">
+                <h2>🎯 Security Recommendations</h2>
+                <ul id="recommendations-list">
+                    <!-- Recommendations will be dynamically inserted here -->
+                    <li>Implement regular vulnerability scanning and security assessments</li>
+                    <li>Keep all systems and software updated with latest security patches</li>
+                    <li>Use strong authentication mechanisms and access controls</li>
+                    <li>Monitor network traffic and system logs for suspicious activities</li>
+                    <li>Implement proper firewall rules and network segmentation</li>
+                </ul>
+            </section>
+        </div>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p><strong>InfoGather Penetration Testing Tool v1.0</strong></p>
+            <p class="warning-text">FOR AUTHORIZED SECURITY TESTING ONLY</p>
+            <p>Report generated automatically - Please verify findings manually</p>
+        </footer>
+    </div>
+
+    <script>
+        // JavaScript for dynamic report generation and interactivity
+        
+        function formatSeverity(severity) {
+            const severityLower = (severity || 'unknown').toLowerCase();
+            return `<span class="severity-badge ${severityLower}">${severity || 'Unknown'}</span>`;
+        }
+
+        function formatVulnerability(vuln) {
+            const severity = (vuln.severity || 'unknown').toLowerCase();
+            return `
+                <div class="vulnerability ${severity}">
+                    <div class="vulnerability-title">
+                        <span>${vuln.vulnerability || 'Unknown Vulnerability'}</span>
+                        ${formatSeverity(vuln.severity)}
+                    </div>
+                    <div class="vulnerability-description">
+                        ${vuln.description || 'No description available'}
+                    </div>
+                    ${vuln.evidence ? `<div class="vulnerability-evidence">${vuln.evidence}</div>` : ''}
+                    ${vuln.remediation ? `<div class="vulnerability-remediation"><strong>Remediation:</strong> ${vuln.remediation}</div>` : ''}
+                </div>
+            `;
+        }
+
+        function formatNetworkScan(networkScan) {
+            if (!networkScan) return '<div class="no-data">No network scan data available</div>';
+            
+            let html = '<div class="info-grid">';
+            
+            // Host Discovery
+            if (networkScan.host_discovery) {
+                const hostDisc = networkScan.host_discovery;
+                html += `
+                    <div class="info-box">
+                        <h4>🔍 Host Discovery</h4>
+                        <p><strong>Status:</strong> <span class="${hostDisc.is_up ? 'success-text' : 'warning-text'}">${hostDisc.is_up ? 'UP' : 'DOWN'}</span></p>
+                        ${hostDisc.response_time ? `<p><strong>Response Time:</strong> ${hostDisc.response_time}s</p>` : ''}
+                        ${hostDisc.ping_response !== undefined ? `<p><strong>ICMP Response:</strong> ${hostDisc.ping_response ? 'Yes' : 'No'}</p>` : ''}
+                    </div>
+                `;
+            }
+            
+            // Port Scan Summary
+            if (networkScan.port_scan && networkScan.port_scan.summary) {
+                const summary = networkScan.port_scan.summary;
+                html += `
+                    <div class="info-box">
+                        <h4>🚪 Port Scan Summary</h4>
+                        <p><strong>Total Ports:</strong> ${summary.total || 0}</p>
+                        <p><strong>Open:</strong> <span class="success-text">${summary.open || 0}</span></p>
+                        <p><strong>Closed:</strong> ${summary.closed || 0}</p>
+                        <p><strong>Filtered:</strong> ${summary.filtered || 0}</p>
+                    </div>
+                `;
+            }
+            
+            html += '</div>';
+            
+            // Open Ports
+            if (networkScan.port_scan && networkScan.port_scan.ports) {
+                const openPorts = Object.entries(networkScan.port_scan.ports)
+                    .filter(([port, info]) => info.state === 'open')
+                    .map(([port, info]) => port);
+                
+                if (openPorts.length > 0) {
+                    html += `
+                        <h4>🔓 Open Ports</h4>
+                        <div class="port-list">
+                            ${openPorts.map(port => `<span class="port-badge">${port}</span>`).join('')}
+                        </div>
+                    `;
+                }
+            }
+            
+            // Services
+            if (networkScan.service_detection && networkScan.service_detection.services) {
+                html += '<h4>⚙️ Detected Services</h4>';
+                html += '<table class="table"><thead><tr><th>Port</th><th>Service</th><th>Product</th><th>Version</th></tr></thead><tbody>';
+                
+                Object.entries(networkScan.service_detection.services).forEach(([port, service]) => {
+                    html += `
+                        <tr>
+                            <td>${port}</td>
+                            <td>${service.name || 'Unknown'}</td>
+                            <td>${service.product || '-'}</td>
+                            <td>${service.version || '-'}</td>
+                        </tr>
+                    `;
+                });
+                
+                html += '</tbody></table>';
+            }
+            
+            return html;
+        }
+
+        function formatDNSEnum(dnsEnum) {
+            if (!dnsEnum) return '<div class="no-data">No DNS enumeration data available</div>';
+            
+            let html = '<div class="info-grid">';
+            
+            // DNS Records
+            if (dnsEnum.dns_records) {
+                Object.entries(dnsEnum.dns_records).forEach(([recordType, records]) => {
+                    if (records && records.length > 0) {
+                        html += `
+                            <div class="info-box">
+                                <h4>📋 ${recordType} Records</h4>
+                                <ul>
+                                    ${records.slice(0, 5).map(record => 
+                                        `<li>${typeof record === 'object' ? JSON.stringify(record) : record}</li>`
+                                    ).join('')}
+                                    ${records.length > 5 ? `<li><em>... and ${records.length - 5} more</em></li>` : ''}
+                                </ul>
+                            </div>
+                        `;
+                    }
+                });
+            }
+            
+            html += '</div>';
+            
+            // Subdomains
+            if (dnsEnum.subdomains && dnsEnum.subdomains.length > 0) {
+                html += `
+                    <h4>🌐 Discovered Subdomains (${dnsEnum.subdomains.length})</h4>
+                    <div class="info-box">
+                        <ul>
+                            ${dnsEnum.subdomains.slice(0, 10).map(subdomain => 
+                                `<li>${subdomain.subdomain || subdomain}</li>`
+                            ).join('')}
+                            ${dnsEnum.subdomains.length > 10 ? `<li><em>... and ${dnsEnum.subdomains.length - 10} more</em></li>` : ''}
+                        </ul>
+                    </div>
+                `;
+            }
+            
+            // Zone Transfer
+            if (dnsEnum.zone_transfer && dnsEnum.zone_transfer.attempted) {
+                const zt = dnsEnum.zone_transfer;
+                html += `
+                    <h4>🔄 Zone Transfer Test</h4>
+                    <div class="info-box">
+                        <p><strong>Status:</strong> <span class="${zt.successful ? 'warning-text' : 'success-text'}">
+                            ${zt.successful ? 'VULNERABLE' : 'SECURE'}
+                        </span></p>
+                        ${zt.successful ? `<p><strong>Records Found:</strong> ${zt.records ? zt.records.length : 0}</p>` : ''}
+                    </div>
+                `;
+            }
+            
+            return html;
+        }
+
+        function formatWHOIS(whoisData) {
+            if (!whoisData) return '<div class="no-data">No WHOIS data available</div>';
+            
+            let html = '<div class="info-grid">';
+            
+            // Domain WHOIS
+            if (whoisData.domain_whois) {
+                const domain = whoisData.domain_whois;
+                html += `
+                    <div class="info-box">
+                        <h4>🌍 Domain Information</h4>
+                        ${domain.registrar ? `<p><strong>Registrar:</strong> ${domain.registrar}</p>` : ''}
+                        ${domain.creation_date ? `<p><strong>Created:</strong> ${domain.creation_date}</p>` : ''}
+                        ${domain.expiration_date ? `<p><strong>Expires:</strong> ${domain.expiration_date}</p>` : ''}
+                        ${domain.domain_age_days ? `<p><strong>Age:</strong> ${domain.domain_age_days} days</p>` : ''}
+                    </div>
+                `;
+            }
+            
+            // IP WHOIS
+            if (whoisData.ip_whois) {
+                const ip = whoisData.ip_whois;
+                html += `
+                    <div class="info-box">
+                        <h4>🌐 IP Information</h4>
+                        ${ip.organization ? `<p><strong>Organization:</strong> ${ip.organization}</p>` : ''}
+                        ${ip.country ? `<p><strong>Country:</strong> ${ip.country}</p>` : ''}
+                        ${ip.isp ? `<p><strong>ISP:</strong> ${ip.isp}</p>` : ''}
+                        ${ip.network ? `<p><strong>Network:</strong> ${ip.network}</p>` : ''}
+                    </div>
+                `;
+            }
+            
+            html += '</div>';
+            return html;
+        }
+
+        function formatSSLAnalysis(sslAnalysis) {
+            if (!sslAnalysis) return '<div class="no-data">No SSL analysis data available</div>';
+            
+            let html = '';
+            
+            // SSL Services Overview
+            if (sslAnalysis.ssl_services) {
+                const sslServices = Object.entries(sslAnalysis.ssl_services)
+                    .filter(([port, service]) => service.ssl_enabled);
+                
+                if (sslServices.length > 0) {
+                    html += `
+                        <h4>🔒 SSL/TLS Services</h4>
+                        <table class="table">
+                            <thead><tr><th>Port</th><th>Protocol</th><th>Cipher Suite</th></tr></thead>
+                            <tbody>
+                                ${sslServices.map(([port, service]) => `
+                                    <tr>
+                                        <td>${port}</td>
+                                        <td>${service.ssl_version || 'Unknown'}</td>
+                                        <td>${service.cipher_suite ? service.cipher_suite[0] : 'Unknown'}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    `;
+                }
+            }
+            
+            // Certificate Information
+            if (sslAnalysis.certificates) {
+                Object.entries(sslAnalysis.certificates).forEach(([port, certInfo]) => {
+                    if (certInfo.certificate_details) {
+                        const cert = certInfo.certificate_details;
+                        html += `
+                            <div class="certificate-info">
+                                <h5>📜 Certificate (Port ${port})</h5>
+                                <div class="certificate-details">
+                                    ${cert.subject && cert.subject.commonName ? `<dt>Subject:</dt><dd>${cert.subject.commonName}</dd>` : ''}
+                                    ${cert.issuer && cert.issuer.commonName ? `<dt>Issuer:</dt><dd>${cert.issuer.commonName}</dd>` : ''}
+                                    ${cert.not_valid_before ? `<dt>Valid From:</dt><dd>${cert.not_valid_before}</dd>` : ''}
+                                    ${cert.not_valid_after ? `<dt>Valid Until:</dt><dd>${cert.not_valid_after}</dd>` : ''}
+                                    ${cert.days_until_expiry !== undefined ? `<dt>Days Until Expiry:</dt><dd class="${cert.days_until_expiry < 30 ? 'warning-text' : ''}">${cert.days_until_expiry}</dd>` : ''}
+                                </div>
+                            </div>
+                        `;
+                    }
+                });
+            }
+            
+            // Security Assessment
+            if (sslAnalysis.security_assessment) {
+                const assessment = sslAnalysis.security_assessment;
+                html += `
+                    <div class="info-box">
+                        <h4>🛡️ Security Assessment</h4>
+                        <p><strong>Overall Score:</strong> ${assessment.overall_score || 'Unknown'}/100</p>
+                        <p><strong>Security Level:</strong> <span class="${assessment.security_level === 'Excellent' ? 'success-text' : assessment.security_level === 'Critical' ? 'warning-text' : ''}">${assessment.security_level || 'Unknown'}</span></p>
+                    </div>
+                `;
+            }
+            
+            return html;
+        }
+
+        function formatVulnScan(vulnScan) {
+            if (!vulnScan) return '<div class="no-data">No vulnerability scan data available</div>';
+            
+            let html = '';
+            
+            // Summary
+            if (vulnScan.summary) {
+                const summary = vulnScan.summary;
+                html += `
+                    <div class="info-grid">
+                        <div class="info-box">
+                            <h4>📊 Vulnerability Summary</h4>
+                            <p><strong>Total:</strong> ${summary.total_vulnerabilities || 0}</p>
+                            <p><strong>Critical:</strong> <span class="warning-text">${summary.critical || 0}</span></p>
+                            <p><strong>High:</strong> <span style="color: #fd7e14;">${summary.high || 0}</span></p>
+                            <p><strong>Medium:</strong> <span style="color: #17a2b8;">${summary.medium || 0}</span></p>
+                            <p><strong>Low:</strong> <span class="success-text">${summary.low || 0}</span></p>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Service Vulnerabilities
+            if (vulnScan.service_vulnerabilities) {
+                Object.entries(vulnScan.service_vulnerabilities).forEach(([port, vulns]) => {
+                    if (vulns && vulns.length > 0) {
+                        html += `<h4>🔌 Service Vulnerabilities (Port ${port})</h4>`;
+                        vulns.forEach(vuln => {
+                            html += formatVulnerability(vuln);
+                        });
+                    }
+                });
+            }
+            
+            // Web Vulnerabilities
+            if (vulnScan.web_vulnerabilities) {
+                Object.entries(vulnScan.web_vulnerabilities).forEach(([port, vulns]) => {
+                    if (vulns && vulns.length > 0) {
+                        html += `<h4>🌐 Web Vulnerabilities (Port ${port})</h4>`;
+                        vulns.forEach(vuln => {
+                            html += formatVulnerability(vuln);
+                        });
+                    }
+                });
+            }
+            
+            // Network Vulnerabilities
+            if (vulnScan.network_vulnerabilities && vulnScan.network_vulnerabilities.length > 0) {
+                html += '<h4>🌍 Network Vulnerabilities</h4>';
+                vulnScan.network_vulnerabilities.forEach(vuln => {
+                    html += formatVulnerability(vuln);
+                });
+            }
+            
+            return html;
+        }
+
+        function generateTargetSection(target, targetData) {
+            let html = `
+                <div class="target-section">
+                    <div class="target-header">
+                        <span class="icon">🎯</span>
+                        Target: ${target}
+                    </div>
+                    <div class="target-body">
+            `;
+            
+            // Network Scan
+            if (targetData.network_scan) {
+                html += `
+                    <div class="module-section">
+                        <h3 class="module-title">
+                            <span class="icon">🔍</span>
+                            Network Scan Results
+                        </h3>
+                        ${formatNetworkScan(targetData.network_scan)}
+                    </div>
+                `;
+            }
+            
+            // DNS Enumeration
+            if (targetData.dns_enum) {
+                html += `
+                    <div class="module-section">
+                        <h3 class="module-title">
+                            <span class="icon">🌐</span>
+                            DNS Enumeration
+                        </h3>
+                        ${formatDNSEnum(targetData.dns_enum)}
+                    </div>
+                `;
+            }
+            
+            // WHOIS
+            if (targetData.whois) {
+                html += `
+                    <div class="module-section">
+                        <h3 class="module-title">
+                            <span class="icon">📋</span>
+                            WHOIS Information
+                        </h3>
+                        ${formatWHOIS(targetData.whois)}
+                    </div>
+                `;
+            }
+            
+            // SSL Analysis
+            if (targetData.ssl_analysis) {
+                html += `
+                    <div class="module-section">
+                        <h3 class="module-title">
+                            <span class="icon">🔒</span>
+                            SSL/TLS Analysis
+                        </h3>
+                        ${formatSSLAnalysis(targetData.ssl_analysis)}
+                    </div>
+                `;
+            }
+            
+            // Vulnerability Scan
+            if (targetData.vuln_scan) {
+                html += `
+                    <div class="module-section">
+                        <h3 class="module-title">
+                            <span class="icon">🛡️</span>
+                            Vulnerability Assessment
+                        </h3>
+                        ${formatVulnScan(targetData.vuln_scan)}
+                    </div>
+                `;
+            }
+            
+            html += `
+                    </div>
+                </div>
+            `;
+            
+            return html;
+        }
+
+        // Function to load report data (would be called with actual data)
+        function loadReportData(reportData) {
+            if (!reportData) return;
+            
+            // Update summary statistics
+            document.getElementById('total-targets').textContent = reportData.targets ? reportData.targets.length : 0;
+            
+            // Calculate vulnerability statistics
+            let totalVulns = 0, criticalCount = 0, highCount = 0;
+            
+            if (reportData.results) {
+                Object.values(reportData.results).forEach(targetData => {
+                    if (targetData.vuln_scan && targetData.vuln_scan.summary) {
+                        const summary = targetData.vuln_scan.summary;
+                        totalVulns += summary.total_vulnerabilities || 0;
+                        criticalCount += summary.critical || 0;
+                        highCount += summary.high || 0;
+                    }
+                });
+            }
+            
+            document.getElementById('total-vulnerabilities').textContent = totalVulns;
+            document.getElementById('critical-count').textContent = criticalCount;
+            document.getElementById('high-count').textContent = highCount;
+            
+            // Generate target sections
+            const targetResultsContainer = document.getElementById('target-results');
+            if (reportData.results) {
+                Object.entries(reportData.results).forEach(([target, targetData]) => {
+                    targetResultsContainer.innerHTML += generateTargetSection(target, targetData);
+                });
+            }
+        }
+
+        // Initialize report on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set current date if not already set
+            const reportDateElement = document.getElementById('report-date');
+            if (reportDateElement && !reportDateElement.textContent.trim()) {
+                reportDateElement.textContent = new Date().toLocaleString();
+            }
+            
+            // Add any additional initialization here
+            console.log('InfoGather Report Template Loaded');
+        });
+    </script>
+</body>
+</html>
