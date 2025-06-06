@@ -46,7 +46,7 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "python web_dashboard_postgres.py"
+args = "python web_dashboard_simple.py"
 waitForPort = 5000
 
 [deployment]
