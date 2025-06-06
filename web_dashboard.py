@@ -12,8 +12,8 @@ import threading
 import uuid
 from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
-import sqlite3
 from functools import wraps
+from models import db, User, Scan, ScanResult, Finding, ScanSummary, AuditLog, init_db
 
 # Import InfoGather modules
 from modules.network_scanner import NetworkScanner
@@ -28,18 +28,23 @@ from modules.report_generator import ReportGenerator
 from utils.validation import validate_target, validate_ports
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', os.urandom(24))
+
+# Configure PostgreSQL database
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_recycle': 300,
+    'pool_pre_ping': True,
+}
+
+# Initialize database
+init_db(app)
 
 # Global variables for scan management
 active_scans = {}
 scan_results = {}
 scan_history = []
-
-# Database setup
-def init_database():
-    """Initialize SQLite database for user management and scan history"""
-    conn = sqlite3.connect('infogather.db')
-    cursor = conn.cursor()
     
     # Users table
     cursor.execute('''

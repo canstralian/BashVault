@@ -46,8 +46,12 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "python web_dashboard.py"
+args = "python web_dashboard_postgres.py"
 waitForPort = 5000
 
 [deployment]
 run = ["sh", "-c", "pip install python-nmap requests dnspython python-whois cryptography jinja2 && python pentester.py --help"]
+
+[[ports]]
+localPort = 5000
+externalPort = 80
