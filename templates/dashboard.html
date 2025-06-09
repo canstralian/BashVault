@@ -5,74 +5,74 @@
 {% block content %}
 <div class="row mb-4">
     <div class="col-12">
-        <div class="d-flex justify-content-between align-items-center">
-            <h1><i class="fas fa-tachometer-alt"></i> Security Dashboard</h1>
+        <div class="d-flex justify-content-between align-items-center flex-wrap">
+            <h1 class="mb-2 mb-md-0"><i class="fas fa-tachometer-alt"></i> <span class="d-none d-sm-inline">Security </span>Dashboard</h1>
             <a href="{{ url_for('scan_page') }}" class="btn btn-primary">
-                <i class="fas fa-plus"></i> New Scan
+                <i class="fas fa-plus"></i> <span class="d-none d-sm-inline">New </span>Scan
             </a>
         </div>
     </div>
 </div>
 
 <div class="row mb-4">
-    <div class="col-md-3">
-        <div class="card bg-primary text-white">
+    <div class="col-6 col-md-3 mb-3">
+        <div class="card bg-primary text-white stats-card">
             <div class="card-body">
-                <div class="d-flex justify-content-between">
+                <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <h4 id="total-scans">0</h4>
-                        <p class="mb-0">Total Scans</p>
+                        <h4 id="total-scans" class="mb-1">0</h4>
+                        <p class="mb-0 small">Total<span class="d-none d-lg-inline"> Scans</span></p>
                     </div>
-                    <div class="align-self-center">
-                        <i class="fas fa-search fa-2x"></i>
+                    <div>
+                        <i class="fas fa-search fa-lg"></i>
                     </div>
                 </div>
             </div>
         </div>
     </div>
     
-    <div class="col-md-3">
-        <div class="card bg-success text-white">
+    <div class="col-6 col-md-3 mb-3">
+        <div class="card bg-success text-white stats-card">
             <div class="card-body">
-                <div class="d-flex justify-content-between">
+                <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <h4 id="completed-scans">0</h4>
-                        <p class="mb-0">Completed</p>
+                        <h4 id="completed-scans" class="mb-1">0</h4>
+                        <p class="mb-0 small">Done<span class="d-none d-lg-inline">eted</span></p>
                     </div>
-                    <div class="align-self-center">
-                        <i class="fas fa-check-circle fa-2x"></i>
+                    <div>
+                        <i class="fas fa-check-circle fa-lg"></i>
                     </div>
                 </div>
             </div>
         </div>
     </div>
     
-    <div class="col-md-3">
-        <div class="card bg-warning text-white">
+    <div class="col-6 col-md-3 mb-3">
+        <div class="card bg-warning text-white stats-card">
             <div class="card-body">
-                <div class="d-flex justify-content-between">
+                <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <h4 id="running-scans">0</h4>
-                        <p class="mb-0">Running</p>
+                        <h4 id="running-scans" class="mb-1">0</h4>
+                        <p class="mb-0 small">Active<span class="d-none d-lg-inline"> Scans</span></p>
                     </div>
-                    <div class="align-self-center">
-                        <i class="fas fa-spinner fa-2x"></i>
+                    <div>
+                        <i class="fas fa-spinner fa-lg"></i>
                     </div>
                 </div>
             </div>
         </div>
     </div>
     
-    <div class="col-md-3">
-        <div class="card bg-danger text-white">
+    <div class="col-6 col-md-3 mb-3">
+        <div class="card bg-danger text-white stats-card">
             <div class="card-body">
-                <div class="d-flex justify-content-between">
+                <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <h4 id="critical-findings">0</h4>
-                        <p class="mb-0">Critical Issues</p>
+                        <h4 id="critical-findings" class="mb-1">0</h4>
+                        <p class="mb-0 small">Critical<span class="d-none d-lg-inline"> Issues</span></p>
                     </div>
-                    <div class="align-self-center">
-                        <i class="fas fa-exclamation-triangle fa-2x"></i>
+                    <div>
+                        <i class="fas fa-exclamation-triangle fa-lg"></i>
                     </div>
                 </div>
             </div>
@@ -81,10 +81,10 @@
 </div>
 
 <div class="row">
-    <div class="col-md-8">
+    <div class="col-lg-8 mb-4">
         <div class="card">
             <div class="card-header">
-                <h5><i class="fas fa-chart-line"></i> Recent Scan Activity</h5>
+                <h5><i class="fas fa-chart-line"></i> <span class="d-none d-sm-inline">Recent Scan </span>Activity</h5>
             </div>
             <div class="card-body">
                 <div id="activity-chart-container">
@@ -94,18 +94,18 @@
         </div>
     </div>
     
-    <div class="col-md-4">
+    <div class="col-lg-4 mb-4">
         <div class="card">
             <div class="card-header">
-                <h5><i class="fas fa-clock"></i> Recent Scans</h5>
+                <h5><i class="fas fa-clock"></i> Recent<span class="d-none d-sm-inline"> Scans</span></h5>
             </div>
             <div class="card-body">
                 <div id="recent-scans">
-                    <div class="text-center text-muted">
-                        <i class="fas fa-search fa-3x mb-3"></i>
-                        <p>No recent scans</p>
-                        <a href="{{ url_for('scan_page') }}" class="btn btn-outline-primary">
-                            Start Your First Scan
+                    <div class="text-center text-muted py-3">
+                        <i class="fas fa-search fa-2x mb-2"></i>
+                        <p class="mb-2">No recent scans</p>
+                        <a href="{{ url_for('scan_page') }}" class="btn btn-outline-primary btn-sm">
+                            <span class="d-none d-sm-inline">Start Your First </span>Scan
                         </a>
                     </div>
                 </div>

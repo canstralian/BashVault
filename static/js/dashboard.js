@@ -103,11 +103,11 @@ function updateRecentScans(scans) {
     
     if (!scans || scans.length === 0) {
         container.innerHTML = `
-            <div class="text-center text-muted py-4">
-                <i class="fas fa-search fa-3x mb-3"></i>
-                <p>No recent scans</p>
-                <a href="/scan" class="btn btn-outline-primary">
-                    Start Your First Scan
+            <div class="text-center text-muted py-3">
+                <i class="fas fa-search fa-2x mb-2"></i>
+                <p class="mb-2">No recent scans</p>
+                <a href="/scan" class="btn btn-outline-primary btn-sm">
+                    <span class="d-none d-sm-inline">Start Your First </span>Scan
                 </a>
             </div>
         `;
@@ -115,21 +115,28 @@ function updateRecentScans(scans) {
     }
     
     let html = '';
-    scans.slice(0, 5).forEach(scan => {
+    const isMobile = window.innerWidth < 768;
+    const displayCount = isMobile ? 3 : 5;
+    
+    scans.slice(0, displayCount).forEach(scan => {
         const statusClass = getStatusClass(scan.status);
         const timeAgo = getTimeAgo(scan.started_at);
         
+        // Truncate target for mobile
+        const displayTarget = isMobile && scan.target.length > 20 ? 
+            scan.target.substring(0, 17) + '...' : scan.target;
+        
         html += `
-            <div class="d-flex justify-content-between align-items-center mb-3 p-3 border rounded hover-card">
-                <div>
-                    <strong>${scan.target}</strong>
-                    <br>
+            <div class="d-flex justify-content-between align-items-center mb-2 p-2 border rounded" style="cursor: pointer;" 
+                 onclick="${scan.status === 'completed' ? `window.location.href='/results/${scan.id}'` : 'void(0)'}">
+                <div class="flex-grow-1 me-2">
+                    <div class="fw-bold small">${displayTarget}</div>
                     <small class="text-muted">${timeAgo}</small>
                 </div>
                 <div class="text-end">
-                    <span class="badge bg-${statusClass}">${scan.status}</span>
-                    ${scan.status === 'completed' ? 
-                        `<br><a href="/results/${scan.id}" class="btn btn-sm btn-outline-primary mt-1">View</a>` : 
+                    <span class="badge bg-${statusClass} small">${scan.status}</span>
+                    ${scan.status === 'completed' && !isMobile ? 
+                        `<br><small class="text-primary">Tap to view</small>` : 
                         ''}
                 </div>
             </div>
@@ -144,6 +151,7 @@ function updateActivityChart(data) {
     if (!canvas) return;
     
     const ctx = canvas.getContext('2d');
+    const isMobile = window.innerWidth < 768;
     
     // Destroy existing chart if it exists
     if (dashboardCharts.activity) {
@@ -159,17 +167,34 @@ function updateActivityChart(data) {
                 data: data.values || [],
                 borderColor: '#667eea',
                 backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                borderWidth: 2,
+                borderWidth: isMobile ? 1.5 : 2,
                 fill: true,
-                tension: 0.4
+                tension: 0.4,
+                pointRadius: isMobile ? 2 : 3,
+                pointHoverRadius: isMobile ? 4 : 6
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            interaction: {
+                mode: 'nearest',
+                intersect: false
+            },
             plugins: {
                 legend: {
-                    display: false
+                    display: !isMobile
+                },
+                tooltip: {
+                    enabled: true,
+                    mode: 'nearest',
+                    intersect: false,
+                    titleFont: {
+                        size: isMobile ? 12 : 14
+                    },
+                    bodyFont: {
+                        size: isMobile ? 11 : 13
+                    }
                 }
             },
             scales: {
@@ -177,11 +202,23 @@ function updateActivityChart(data) {
                     beginAtZero: true,
                     grid: {
                         color: '#e9ecef'
+                    },
+                    ticks: {
+                        font: {
+                            size: isMobile ? 10 : 12
+                        },
+                        maxTicksLimit: isMobile ? 4 : 6
                     }
                 },
                 x: {
                     grid: {
                         color: '#e9ecef'
+                    },
+                    ticks: {
+                        font: {
+                            size: isMobile ? 10 : 12
+                        },
+                        maxRotation: isMobile ? 45 : 0
                     }
                 }
             }
@@ -512,6 +549,28 @@ function cleanup() {
     });
 }
 
+// Handle window resize for mobile optimization
+function handleResize() {
+    // Redraw charts on resize
+    if (dashboardCharts.activity) {
+        dashboardCharts.activity.resize();
+    }
+    
+    // Update recent scans display
+    const container = document.getElementById('recent-scans');
+    if (container && container.innerHTML && !container.innerHTML.includes('No recent scans')) {
+        // Trigger refresh of recent scans display
+        loadDashboardStats();
+    }
+}
+
+// Debounce resize events
+let resizeTimeout;
+window.addEventListener('resize', function() {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(handleResize, 250);
+});
+
 // Initialize based on page
 document.addEventListener('DOMContentLoaded', function() {
     // Check which page we're on and initialize accordingly
@@ -536,6 +595,21 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         updateEstimatedTime();
     }
+    
+    // Add touch event handling for better mobile experience
+    if ('ontouchstart' in window) {
+        document.body.classList.add('touch-device');
+    }
+    
+    // Prevent zoom on double tap for form inputs on iOS
+    let lastTouchEnd = 0;
+    document.addEventListener('touchend', function (event) {
+        const now = (new Date()).getTime();
+        if (now - lastTouchEnd <= 300) {
+            event.preventDefault();
+        }
+        lastTouchEnd = now;
+    }, false);
 });
 
 // Cleanup on page unload

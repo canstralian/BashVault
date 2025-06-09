@@ -201,23 +201,355 @@ body {
     height: 300px;
 }
 
-/* Responsive Design */
+/* Mobile Optimizations */
 @media (max-width: 768px) {
+    /* Layout adjustments */
+    .container-fluid {
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+    
+    /* Card optimizations */
+    .card {
+        margin-bottom: 1rem;
+    }
+    
     .card-body {
-        padding: 1rem;
+        padding: 0.75rem;
+    }
+    
+    .card-header {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.9rem;
+    }
+    
+    /* Navigation */
+    .navbar-brand {
+        font-size: 1rem;
+    }
+    
+    .navbar-nav .nav-link {
+        padding: 0.5rem 0.75rem;
+    }
+    
+    /* Statistics cards */
+    .row.mb-4 .col-md-3 {
+        margin-bottom: 1rem;
+    }
+    
+    .card h4 {
+        font-size: 1.5rem;
+    }
+    
+    .card .fa-2x {
+        font-size: 1.5em !important;
+    }
+    
+    /* Button optimizations */
+    .btn {
+        padding: 0.5rem 1rem;
+        font-size: 0.9rem;
+        min-height: 44px; /* Touch target size */
+    }
+    
+    .btn-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.8rem;
+        min-height: 36px;
     }
     
     .btn-group-sm .btn {
         padding: 0.25rem 0.5rem;
         font-size: 0.75rem;
+        min-height: 36px;
     }
     
+    /* Form controls */
+    .form-control, .form-select {
+        font-size: 16px; /* Prevents zoom on iOS */
+        min-height: 44px;
+    }
+    
+    .form-check-input {
+        transform: scale(1.2);
+        margin-right: 0.5rem;
+    }
+    
+    .form-check-label {
+        font-size: 0.9rem;
+        line-height: 1.4;
+    }
+    
+    /* Table optimizations */
     .table-responsive {
-        font-size: 0.875rem;
+        font-size: 0.8rem;
+        border: none;
     }
     
+    .table th,
+    .table td {
+        padding: 0.5rem 0.25rem;
+        vertical-align: middle;
+    }
+    
+    .table th {
+        font-size: 0.75rem;
+        white-space: nowrap;
+    }
+    
+    /* Badge optimizations */
     .badge {
         font-size: 0.65em;
+        padding: 0.35em 0.5em;
+    }
+    
+    /* Modal optimizations */
+    .modal-dialog {
+        margin: 0.5rem;
+        max-width: calc(100% - 1rem);
+    }
+    
+    .modal-header {
+        padding: 0.75rem;
+    }
+    
+    .modal-body {
+        padding: 0.75rem;
+    }
+    
+    .modal-footer {
+        padding: 0.5rem 0.75rem;
+    }
+    
+    /* Progress optimizations */
+    .progress {
+        height: 8px;
+    }
+    
+    /* Chart container */
+    #activity-chart-container {
+        height: 250px;
+    }
+    
+    /* Recent scans optimization */
+    #recent-scans .d-flex {
+        flex-direction: column;
+        align-items: flex-start !important;
+        gap: 0.5rem;
+    }
+    
+    #recent-scans .text-end {
+        align-self: flex-end;
+        text-align: right !important;
+    }
+    
+    /* Findings overview */
+    #findings-overview .col-md-3 {
+        margin-bottom: 0.75rem;
+    }
+    
+    /* Search input */
+    #search-input {
+        font-size: 16px;
+        margin-bottom: 1rem;
+    }
+    
+    /* Scan log */
+    #scan-log {
+        font-size: 0.75rem;
+        max-height: 150px;
+    }
+    
+    /* Module selection cards */
+    .module-selection .card {
+        margin-bottom: 0.75rem;
+    }
+    
+    .module-selection .card-body {
+        padding: 0.75rem;
+    }
+    
+    /* Vulnerability cards */
+    .vulnerability-card {
+        margin-bottom: 0.75rem;
+        padding: 0.75rem;
+    }
+    
+    /* Results page optimizations */
+    .results-overview {
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    /* Tab navigation */
+    .nav-tabs {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .nav-tabs .nav-link {
+        white-space: nowrap;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.9rem;
+    }
+    
+    /* Port list optimization */
+    .port-list {
+        gap: 3px;
+    }
+    
+    .port-badge {
+        padding: 0.2rem 0.4rem;
+        font-size: 0.7rem;
+    }
+}
+
+/* Extra small devices (phones, less than 576px) */
+@media (max-width: 576px) {
+    /* Even more compact layout */
+    .container-fluid {
+        padding-left: 5px;
+        padding-right: 5px;
+    }
+    
+    /* Title adjustments */
+    h1 {
+        font-size: 1.5rem;
+    }
+    
+    h2 {
+        font-size: 1.3rem;
+    }
+    
+    h3 {
+        font-size: 1.1rem;
+    }
+    
+    h4 {
+        font-size: 1rem;
+    }
+    
+    h5 {
+        font-size: 0.9rem;
+    }
+    
+    /* Card title adjustments */
+    .card h4 {
+        font-size: 1.25rem;
+    }
+    
+    /* Statistics layout */
+    .row.mb-4 {
+        margin-bottom: 1rem !important;
+    }
+    
+    /* Button text adjustments for very small screens */
+    .btn .fa {
+        margin-right: 0.25rem;
+    }
+    
+    /* Hide some text on very small screens */
+    .btn .d-none.d-sm-inline {
+        display: none !important;
+    }
+    
+    /* Compact recent scans */
+    #recent-scans .d-flex {
+        padding: 0.5rem;
+        font-size: 0.85rem;
+    }
+    
+    /* Compact table */
+    .table th,
+    .table td {
+        padding: 0.25rem 0.125rem;
+        font-size: 0.75rem;
+    }
+    
+    /* Modal full screen on very small devices */
+    .modal-dialog {
+        margin: 0;
+        max-width: 100%;
+        height: 100vh;
+    }
+    
+    .modal-content {
+        border-radius: 0;
+        height: 100%;
+    }
+    
+    /* Full width form controls */
+    .form-control,
+    .form-select,
+    .btn {
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
+    
+    .input-group {
+        flex-direction: column;
+    }
+    
+    .input-group .btn {
+        margin-top: 0.5rem;
+        border-radius: var(--border-radius) !important;
+    }
+}
+
+/* Touch-friendly improvements */
+@media (hover: none) and (pointer: coarse) {
+    /* Larger touch targets */
+    .btn,
+    .form-control,
+    .form-select,
+    .nav-link {
+        min-height: 44px;
+    }
+    
+    /* Remove hover effects on touch devices */
+    .card:hover {
+        transform: none;
+        box-shadow: var(--box-shadow);
+    }
+    
+    .btn:hover {
+        transform: none;
+    }
+    
+    .stats-card:hover {
+        transform: none;
+    }
+    
+    /* Better tap highlighting */
+    .btn,
+    .nav-link,
+    .card,
+    .form-check-label {
+        -webkit-tap-highlight-color: rgba(102, 126, 234, 0.2);
+    }
+}
+
+/* Landscape phone orientation */
+@media (max-width: 896px) and (orientation: landscape) {
+    /* Adjust modal height for landscape */
+    .modal-dialog {
+        max-height: 90vh;
+    }
+    
+    .modal-body {
+        max-height: 60vh;
+        overflow-y: auto;
+    }
+    
+    /* Compact navigation */
+    .navbar {
+        padding: 0.25rem 1rem;
+    }
+    
+    /* Reduce chart height */
+    #activity-chart-container {
+        height: 200px;
     }
 }
 
