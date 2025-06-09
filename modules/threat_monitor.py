@@ -344,7 +344,7 @@ class ThreatMonitor:
     def _get_service_hash(self, service_url: str) -> str:
         """Get hash representing current service state"""
         try:
-            response = requests.get(service_url, timeout=10, verify=False)
+            response = requests.get(service_url, timeout=10, verify=True)
             
             service_data = {
                 'status_code': response.status_code,
