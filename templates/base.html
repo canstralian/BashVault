@@ -30,8 +30,14 @@
                         <a class="nav-link" href="{{ url_for('scan_page') }}"><i class="fas fa-search"></i> New Scan</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('history_page') }}"><i class="fas fa-history"></i> Scan History</a>
-                    </li>
+                        <a class="nav-link" href="{{ url_for('history_page') }}">
+                        <i class="fas fa-history"></i> History
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('monitoring_page') }}">
+                        <i class="fas fa-radar-chart"></i> Monitor
+                    </a>
                 </ul>
                 <ul class="navbar-nav">
                     <li class="nav-item dropdown">

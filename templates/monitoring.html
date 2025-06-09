@@ -1,0 +1,497 @@
+
+{% extends "base.html" %}
+
+{% block title %}Real-Time Monitoring - InfoGather{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center flex-wrap">
+            <h1 class="mb-2 mb-md-0">
+                <i class="fas fa-radar-chart"></i> Real-Time <span class="d-none d-sm-inline">Threat </span>Monitor
+            </h1>
+            <div class="btn-group" role="group">
+                <button type="button" class="btn btn-outline-primary" onclick="addAssetModal()">
+                    <i class="fas fa-plus"></i> <span class="d-none d-sm-inline">Add </span>Asset
+                </button>
+                <button type="button" class="btn btn-outline-info" onclick="refreshDashboard()">
+                    <i class="fas fa-sync-alt"></i> <span class="d-none d-sm-inline">Refresh</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Monitoring Status Cards -->
+<div class="row mb-4">
+    <div class="col-6 col-md-3 mb-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h4 id="active-assets" class="mb-1">0</h4>
+                        <p class="mb-0 small">Monitored<span class="d-none d-lg-inline"> Assets</span></p>
+                    </div>
+                    <div>
+                        <i class="fas fa-shield-alt fa-lg"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-6 col-md-3 mb-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h4 id="new-alerts" class="mb-1">0</h4>
+                        <p class="mb-0 small">New<span class="d-none d-lg-inline"> Alerts</span></p>
+                    </div>
+                    <div>
+                        <i class="fas fa-bell fa-lg"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-6 col-md-3 mb-3">
+        <div class="card bg-danger text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h4 id="alerts-24h" class="mb-1">0</h4>
+                        <p class="mb-0 small">Alerts<span class="d-none d-lg-inline"> (24h)</span></p>
+                    </div>
+                    <div>
+                        <i class="fas fa-exclamation-triangle fa-lg"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-6 col-md-3 mb-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h4 id="new-vulns" class="mb-1">0</h4>
+                        <p class="mb-0 small">New<span class="d-none d-lg-inline"> CVEs</span></p>
+                    </div>
+                    <div>
+                        <i class="fas fa-bug fa-lg"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Monitoring Status Indicator -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="mb-1">
+                            <i class="fas fa-heartbeat text-success" id="monitoring-status-icon"></i>
+                            Monitoring Status
+                        </h5>
+                        <p class="mb-0 text-muted" id="monitoring-status-text">Active - Last check: Just now</p>
+                    </div>
+                    <div class="text-end">
+                        <small class="text-muted">Auto-refresh: <span id="countdown">30</span>s</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Active Alerts -->
+<div class="row">
+    <div class="col-lg-8 mb-4">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5><i class="fas fa-bell"></i> Active Alerts</h5>
+                <div class="btn-group btn-group-sm" role="group">
+                    <input type="radio" class="btn-check" name="alertFilter" id="filter-new" value="new" checked>
+                    <label class="btn btn-outline-primary" for="filter-new">New</label>
+                    
+                    <input type="radio" class="btn-check" name="alertFilter" id="filter-all" value="all">
+                    <label class="btn btn-outline-primary" for="filter-all">All</label>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="alerts-container">
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-bell-slash fa-3x mb-3"></i>
+                        <p>No active alerts</p>
+                        <small>All systems are secure</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-chart-line"></i> Activity Feed</h5>
+            </div>
+            <div class="card-body">
+                <div id="activity-feed">
+                    <div class="text-center text-muted py-3">
+                        <i class="fas fa-stream fa-2x mb-2"></i>
+                        <p class="mb-0">Loading activity...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Asset Changes -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-history"></i> Recent Asset Changes</h5>
+            </div>
+            <div class="card-body">
+                <div id="asset-changes">
+                    <div class="text-center text-muted py-3">
+                        <i class="fas fa-clock fa-2x mb-2"></i>
+                        <p class="mb-0">No recent changes detected</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Asset Modal -->
+<div class="modal fade" id="addAssetModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Asset to Monitoring</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="add-asset-form">
+                    <div class="mb-3">
+                        <label for="asset-type" class="form-label">Asset Type</label>
+                        <select class="form-select" id="asset-type" required>
+                            <option value="">Select asset type...</option>
+                            <option value="domain">Domain</option>
+                            <option value="ip">IP Address</option>
+                            <option value="service">Web Service URL</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="asset-value" class="form-label">Asset Value</label>
+                        <input type="text" class="form-control" id="asset-value" 
+                               placeholder="e.g., example.com, 192.168.1.1, https://api.example.com" required>
+                        <div class="form-text">Enter the domain, IP address, or service URL to monitor</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="addAsset()">Add Asset</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Monitoring dashboard JavaScript
+let refreshInterval;
+let countdownInterval;
+let countdownValue = 30;
+
+// Initialize dashboard
+document.addEventListener('DOMContentLoaded', function() {
+    loadMonitoringData();
+    startAutoRefresh();
+    
+    // Add alert filter event listeners
+    document.querySelectorAll('input[name="alertFilter"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            loadAlerts(this.value);
+        });
+    });
+});
+
+function loadMonitoringData() {
+    // Load monitoring statistics
+    fetch('/api/threat_monitor/stats')
+        .then(response => response.json())
+        .then(data => {
+            updateMonitoringStats(data);
+        })
+        .catch(error => {
+            console.error('Error loading monitoring stats:', error);
+        });
+    
+    // Load alerts
+    loadAlerts('new');
+}
+
+function updateMonitoringStats(data) {
+    document.getElementById('active-assets').textContent = data.active_assets || 0;
+    document.getElementById('new-alerts').textContent = data.new_alerts || 0;
+    document.getElementById('alerts-24h').textContent = data.alerts_24h || 0;
+    document.getElementById('new-vulns').textContent = data.new_vulnerabilities_7d || 0;
+    
+    // Update monitoring status
+    const statusIcon = document.getElementById('monitoring-status-icon');
+    const statusText = document.getElementById('monitoring-status-text');
+    
+    if (data.monitoring_active) {
+        statusIcon.className = 'fas fa-heartbeat text-success';
+        statusText.textContent = `Active - Last update: ${formatTime(data.last_update)}`;
+    } else {
+        statusIcon.className = 'fas fa-exclamation-triangle text-warning';
+        statusText.textContent = 'Monitoring stopped - Please restart';
+    }
+}
+
+function loadAlerts(status = 'new') {
+    const container = document.getElementById('alerts-container');
+    
+    fetch(`/api/threat_monitor/alerts?status=${status}&limit=20`)
+        .then(response => response.json())
+        .then(data => {
+            displayAlerts(data.alerts || []);
+        })
+        .catch(error => {
+            console.error('Error loading alerts:', error);
+            container.innerHTML = `
+                <div class="text-center text-danger py-3">
+                    <i class="fas fa-exclamation-circle fa-2x mb-2"></i>
+                    <p>Failed to load alerts</p>
+                </div>
+            `;
+        });
+}
+
+function displayAlerts(alerts) {
+    const container = document.getElementById('alerts-container');
+    
+    if (alerts.length === 0) {
+        container.innerHTML = `
+            <div class="text-center text-muted py-4">
+                <i class="fas fa-bell-slash fa-3x mb-3"></i>
+                <p>No alerts found</p>
+                <small>All systems are secure</small>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    alerts.forEach(alert => {
+        const severityClass = getSeverityClass(alert.severity);
+        const timeAgo = getTimeAgo(alert.created_at);
+        
+        html += `
+            <div class="alert alert-${severityClass} alert-dismissible" role="alert">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="flex-grow-1">
+                        <h6 class="alert-heading mb-1">
+                            <i class="fas fa-${getAlertIcon(alert.alert_type)}"></i>
+                            ${alert.title}
+                        </h6>
+                        <p class="mb-1">${alert.description}</p>
+                        <small class="text-muted">
+                            ${timeAgo} • ${alert.alert_type.replace('_', ' ')}
+                            ${alert.cve_id ? ` • ${alert.cve_id}` : ''}
+                        </small>
+                    </div>
+                    ${alert.status === 'new' ? `
+                        <button type="button" class="btn btn-sm btn-outline-secondary ms-2" 
+                                onclick="markAlertRead(${alert.id})">
+                            Mark Read
+                        </button>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+function getSeverityClass(severity) {
+    const severityMap = {
+        'Critical': 'danger',
+        'High': 'warning',
+        'Medium': 'info',
+        'Low': 'secondary',
+        'Info': 'light'
+    };
+    return severityMap[severity] || 'secondary';
+}
+
+function getAlertIcon(alertType) {
+    const iconMap = {
+        'new_vulnerability': 'bug',
+        'asset_change': 'exchange-alt',
+        'service_down': 'exclamation-triangle',
+        'security_incident': 'shield-alt'
+    };
+    return iconMap[alertType] || 'bell';
+}
+
+function markAlertRead(alertId) {
+    fetch(`/api/threat_monitor/alerts/${alertId}/read`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Reload alerts to reflect the change
+            const selectedFilter = document.querySelector('input[name="alertFilter"]:checked').value;
+            loadAlerts(selectedFilter);
+            
+            // Update counters
+            loadMonitoringData();
+        }
+    })
+    .catch(error => {
+        console.error('Error marking alert as read:', error);
+    });
+}
+
+function addAssetModal() {
+    const modal = new bootstrap.Modal(document.getElementById('addAssetModal'));
+    modal.show();
+}
+
+function addAsset() {
+    const assetType = document.getElementById('asset-type').value;
+    const assetValue = document.getElementById('asset-value').value.trim();
+    
+    if (!assetType || !assetValue) {
+        alert('Please fill in all fields');
+        return;
+    }
+    
+    fetch('/api/threat_monitor/add_asset', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            type: assetType,
+            value: assetValue
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('addAssetModal'));
+            modal.hide();
+            
+            // Reset form
+            document.getElementById('add-asset-form').reset();
+            
+            // Reload data
+            loadMonitoringData();
+            
+            // Show success message
+            showNotification('Asset added to monitoring successfully', 'success');
+        } else {
+            showNotification('Failed to add asset to monitoring', 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('Error adding asset:', error);
+        showNotification('Error adding asset to monitoring', 'danger');
+    });
+}
+
+function refreshDashboard() {
+    loadMonitoringData();
+    resetCountdown();
+}
+
+function startAutoRefresh() {
+    // Refresh data every 30 seconds
+    refreshInterval = setInterval(() => {
+        loadMonitoringData();
+        resetCountdown();
+    }, 30000);
+    
+    // Start countdown
+    startCountdown();
+}
+
+function startCountdown() {
+    countdownInterval = setInterval(() => {
+        countdownValue--;
+        document.getElementById('countdown').textContent = countdownValue;
+        
+        if (countdownValue <= 0) {
+            resetCountdown();
+        }
+    }, 1000);
+}
+
+function resetCountdown() {
+    countdownValue = 30;
+    document.getElementById('countdown').textContent = countdownValue;
+}
+
+function formatTime(timestamp) {
+    if (!timestamp) return 'Unknown';
+    
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diff = Math.floor((now - date) / 1000);
+    
+    if (diff < 60) return 'Just now';
+    if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+    if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+    
+    return date.toLocaleDateString();
+}
+
+function getTimeAgo(timestamp) {
+    return formatTime(timestamp);
+}
+
+function showNotification(message, type) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(alertDiv);
+    
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.remove();
+        }
+    }, 5000);
+}
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', function() {
+    if (refreshInterval) clearInterval(refreshInterval);
+    if (countdownInterval) clearInterval(countdownInterval);
+});
+</script>
+{% endblock %}

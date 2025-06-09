@@ -24,6 +24,7 @@ from modules.vulnerability_scanner import VulnerabilityScanner
 from modules.social_engineer import SocialEngineer
 from modules.advanced_dns import AdvancedDNS
 from modules.cloud_discovery import CloudDiscovery
+from modules.threat_monitor import ThreatMonitor
 from utils.validation import validate_target, validate_ports
 
 app = Flask(__name__)
@@ -32,6 +33,10 @@ app.secret_key = os.environ.get('FLASK_SECRET_KEY', os.urandom(24))
 # Global variables for scan management
 active_scans = {}
 scan_results = {}
+
+# Initialize threat monitor
+threat_monitor = ThreatMonitor(verbose=True)
+threat_monitor.start_monitoring(check_interval=300)  # Check every 5 minutes
 
 def get_db_connection():
     """Get PostgreSQL database connection"""
@@ -303,6 +308,15 @@ def run_scan(scan_id, target, ports, modules):
             'summary': summary
         }
         
+        # Add target to threat monitoring
+        try:
+            if target.replace('.', '').isdigit():
+                threat_monitor.add_monitored_asset('ip', target)
+            else:
+                threat_monitor.add_monitored_asset('domain', target)
+        except Exception as e:
+            print(f"Failed to add {target} to monitoring: {str(e)}")
+        
         active_scans[scan_id]['status'] = 'completed'
         
     except Exception as e:
@@ -525,11 +539,15 @@ def dashboard_stats():
         'values': [0, 1, 2, 1, 3, 1, 0]  # Sample data
     }
     
+    # Get monitoring stats
+    monitoring_stats = threat_monitor.get_monitoring_stats()
+    recent_alerts = threat_monitor.get_alerts(status='new', limit=5)
+    
     return jsonify({
         'total_scans': total_scans,
         'completed_scans': completed_scans,
         'running_scans': running_scans,
-        'critical_findings': 0,  # To be calculated from actual results
+        'critical_findings': monitoring_stats.get('new_alerts', 0),
         'recent_scans': recent_scans,
         'activity_data': activity_data,
         'findings_summary': {
@@ -537,7 +555,9 @@ def dashboard_stats():
             'high': 0,
             'medium': 0,
             'low': 0
-        }
+        },
+        'monitoring_stats': monitoring_stats,
+        'recent_alerts': recent_alerts
     })
 
 @app.route('/api/delete_scan/<scan_id>', methods=['DELETE'])
@@ -565,6 +585,49 @@ def delete_scan(scan_id):
         del scan_results[scan_id]
     
     return jsonify({'success': True})
+
+@app.route('/api/threat_monitor/stats')
+@require_auth
+def get_threat_monitor_stats():
+    """Get threat monitoring statistics"""
+    stats = threat_monitor.get_monitoring_stats()
+    return jsonify(stats)
+
+@app.route('/api/threat_monitor/alerts')
+@require_auth
+def get_threat_alerts():
+    """Get current threat alerts"""
+    status = request.args.get('status', 'new')
+    limit = int(request.args.get('limit', 20))
+    alerts = threat_monitor.get_alerts(status=status, limit=limit)
+    return jsonify({'alerts': alerts})
+
+@app.route('/api/threat_monitor/alerts/<int:alert_id>/read', methods=['POST'])
+@require_auth
+def mark_alert_read(alert_id):
+    """Mark an alert as read"""
+    success = threat_monitor.mark_alert_read(alert_id)
+    return jsonify({'success': success})
+
+@app.route('/api/threat_monitor/add_asset', methods=['POST'])
+@require_auth
+def add_monitored_asset():
+    """Add an asset to continuous monitoring"""
+    data = request.get_json()
+    asset_type = data.get('type')
+    asset_value = data.get('value')
+    
+    if not asset_type or not asset_value:
+        return jsonify({'error': 'Asset type and value are required'}), 400
+    
+    success = threat_monitor.add_monitored_asset(asset_type, asset_value)
+    return jsonify({'success': success})
+
+@app.route('/monitoring')
+@require_auth
+def monitoring_page():
+    """Real-time monitoring dashboard page"""
+    return render_template('monitoring.html')
 
 if __name__ == '__main__':
     # Initialize database
