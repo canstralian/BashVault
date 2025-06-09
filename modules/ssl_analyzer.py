@@ -511,7 +511,7 @@ class SSLAnalyzer:
         # BREACH exploits HTTP compression over HTTPS
         try:
             if port == 443:  # Only test HTTPS
-                response = requests.get(f'https://{target}', timeout=5, verify=False)
+                response = requests.get(f'https://{target}', timeout=5, verify=True)
                 content_encoding = response.headers.get('content-encoding', '')
                 return 'gzip' in content_encoding.lower() or 'deflate' in content_encoding.lower()
         except:
