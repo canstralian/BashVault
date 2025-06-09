@@ -10,6 +10,7 @@ import os
 import time
 import threading
 import uuid
+import sqlite3
 from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
@@ -45,45 +46,6 @@ init_db(app)
 active_scans = {}
 scan_results = {}
 scan_history = []
-    
-    # Users table
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE NOT NULL,
-            password_hash TEXT NOT NULL,
-            email TEXT,
-            role TEXT DEFAULT 'user',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    
-    # Scans table
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS scans (
-            id TEXT PRIMARY KEY,
-            user_id INTEGER,
-            target TEXT NOT NULL,
-            modules TEXT NOT NULL,
-            status TEXT DEFAULT 'pending',
-            started_at TIMESTAMP,
-            completed_at TIMESTAMP,
-            results TEXT,
-            FOREIGN KEY (user_id) REFERENCES users (id)
-        )
-    ''')
-    
-    # Create default admin user if it doesn't exist
-    cursor.execute('SELECT COUNT(*) FROM users WHERE username = ?', ('admin',))
-    if cursor.fetchone()[0] == 0:
-        admin_hash = generate_password_hash('admin123')
-        cursor.execute(
-            'INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)',
-            ('admin', admin_hash, 'admin')
-        )
-    
-    conn.commit()
-    conn.close()
 
 def require_auth(f):
     """Decorator to require authentication"""
@@ -96,13 +58,9 @@ def require_auth(f):
 
 def get_user_info(user_id):
     """Get user information from database"""
-    conn = sqlite3.connect('infogather.db')
-    cursor = conn.cursor()
-    cursor.execute('SELECT username, email, role FROM users WHERE id = ?', (user_id,))
-    result = cursor.fetchone()
-    conn.close()
-    if result:
-        return {'username': result[0], 'email': result[1], 'role': result[2]}
+    user = User.query.get(user_id)
+    if user:
+        return {'username': user.username, 'email': user.email, 'role': getattr(user, 'role', 'user')}
     return None
 
 @app.route('/')
@@ -121,14 +79,10 @@ def login():
         username = request.form['username']
         password = request.form['password']
         
-        conn = sqlite3.connect('infogather.db')
-        cursor = conn.cursor()
-        cursor.execute('SELECT id, password_hash FROM users WHERE username = ?', (username,))
-        result = cursor.fetchone()
-        conn.close()
+        user = User.query.filter_by(username=username).first()
         
-        if result and check_password_hash(result[1], password):
-            session['user_id'] = result[0]
+        if user and check_password_hash(user.password_hash, password):
+            session['user_id'] = user.id
             return redirect(url_for('index'))
         else:
             return render_template('login.html', error='Invalid credentials')
@@ -171,14 +125,16 @@ def start_scan():
     scan_id = str(uuid.uuid4())
     
     # Store scan in database
-    conn = sqlite3.connect('infogather.db')
-    cursor = conn.cursor()
-    cursor.execute(
-        'INSERT INTO scans (id, user_id, target, modules, status, started_at) VALUES (?, ?, ?, ?, ?, ?)',
-        (scan_id, session['user_id'], target, json.dumps(modules), 'running', datetime.now())
+    scan = Scan(
+        id=scan_id,
+        user_id=session['user_id'],
+        target=target,
+        modules=json.dumps(modules),
+        status='running',
+        started_at=datetime.now()
     )
-    conn.commit()
-    conn.close()
+    db.session.add(scan)
+    db.session.commit()
     
     # Initialize scan tracking
     active_scans[scan_id] = {
@@ -319,14 +275,19 @@ def run_scan(scan_id, target, ports, modules):
         scan_results[scan_id] = results
         
         # Update database
-        conn = sqlite3.connect('infogather.db')
-        cursor = conn.cursor()
-        cursor.execute(
-            'UPDATE scans SET status = ?, completed_at = ?, results = ? WHERE id = ?',
-            ('completed', datetime.now(), json.dumps(results), scan_id)
-        )
-        conn.commit()
-        conn.close()
+        scan = Scan.query.get(scan_id)
+        if scan:
+            scan.status = 'completed'
+            scan.completed_at = datetime.now()
+            db.session.commit()
+            
+            # Store results
+            scan_result = ScanResult(
+                scan_id=scan_id,
+                results=json.dumps(results)
+            )
+            db.session.add(scan_result)
+            db.session.commit()
         
     except Exception as e:
         # Handle scan errors
@@ -610,8 +571,19 @@ def delete_scan(scan_id):
     return jsonify({'success': True})
 
 if __name__ == '__main__':
-    # Initialize database
-    init_database()
+    # Create database tables
+    with app.app_context():
+        db.create_all()
+        
+        # Create default admin user if it doesn't exist
+        if not User.query.filter_by(username='admin').first():
+            admin_user = User(
+                username='admin',
+                password_hash=generate_password_hash('admin123')
+            )
+            db.session.add(admin_user)
+            db.session.commit()
+            print("Created default admin user: admin / admin123")
     
     # Run the Flask app
     print("InfoGather Web Dashboard starting...")

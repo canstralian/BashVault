@@ -187,3 +187,97 @@ def init_db(app):
             db.session.add(admin_user)
             db.session.commit()
             print("Created default admin user: admin / admin123")
+from flask_sqlalchemy import SQLAlchemy
+from datetime import datetime
+
+db = SQLAlchemy()
+
+def init_db(app):
+    """Initialize database with Flask app"""
+    db.init_app(app)
+
+class User(db.Model):
+    __tablename__ = 'users'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
+    email = db.Column(db.String(120))
+    role = db.Column(db.String(20), default='user')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_login = db.Column(db.DateTime)
+    is_active = db.Column(db.Boolean, default=True)
+    
+    # Relationships
+    scans = db.relationship('Scan', backref='user', lazy=True, cascade='all, delete-orphan')
+
+class Scan(db.Model):
+    __tablename__ = 'scans'
+    
+    id = db.Column(db.String(36), primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    target = db.Column(db.String(255), nullable=False)
+    ports = db.Column(db.String(100))
+    modules = db.Column(db.Text, nullable=False)
+    status = db.Column(db.String(20), default='pending')
+    started_at = db.Column(db.DateTime, default=datetime.utcnow)
+    completed_at = db.Column(db.DateTime)
+    progress = db.Column(db.Integer, default=0)
+    current_module = db.Column(db.String(50))
+    error_message = db.Column(db.Text)
+    
+    # Relationships
+    results = db.relationship('ScanResult', backref='scan', lazy=True, cascade='all, delete-orphan')
+    findings = db.relationship('Finding', backref='scan', lazy=True, cascade='all, delete-orphan')
+
+class ScanResult(db.Model):
+    __tablename__ = 'scan_results'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    scan_id = db.Column(db.String(36), db.ForeignKey('scans.id'), nullable=False)
+    module_name = db.Column(db.String(50), nullable=False)
+    results = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class Finding(db.Model):
+    __tablename__ = 'findings'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    scan_id = db.Column(db.String(36), db.ForeignKey('scans.id'), nullable=False)
+    module_name = db.Column(db.String(50), nullable=False)
+    finding_type = db.Column(db.String(50), nullable=False)
+    severity = db.Column(db.String(20))
+    title = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text)
+    evidence = db.Column(db.Text)
+    remediation = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class ScanSummary(db.Model):
+    __tablename__ = 'scan_summaries'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    scan_id = db.Column(db.String(36), db.ForeignKey('scans.id'), nullable=False, unique=True)
+    total_findings = db.Column(db.Integer, default=0)
+    critical_issues = db.Column(db.Integer, default=0)
+    high_issues = db.Column(db.Integer, default=0)
+    medium_issues = db.Column(db.Integer, default=0)
+    low_issues = db.Column(db.Integer, default=0)
+    info_issues = db.Column(db.Integer, default=0)
+    ports_found = db.Column(db.Integer, default=0)
+    subdomains_found = db.Column(db.Integer, default=0)
+    vulnerabilities_found = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class AuditLog(db.Model):
+    __tablename__ = 'audit_logs'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    action = db.Column(db.String(100), nullable=False)
+    resource_type = db.Column(db.String(50))
+    resource_id = db.Column(db.String(36))
+    details = db.Column(db.Text)
+    ip_address = db.Column(db.String(45))
+    user_agent = db.Column(db.String(500))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
