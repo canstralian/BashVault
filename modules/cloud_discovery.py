@@ -341,7 +341,7 @@ class CloudDiscovery:
         files = []
         
         try:
-            import xml.etree.ElementTree as ET
+            import defusedxml.ElementTree as ET
             root = ET.fromstring(xml_content)
             
             # Parse XML namespace
@@ -601,7 +601,7 @@ class CloudDiscovery:
         containers = []
         
         try:
-            import xml.etree.ElementTree as ET
+            import defusedxml.ElementTree as ET
             root = ET.fromstring(xml_content)
             
             for container in root.findall('.//Container'):

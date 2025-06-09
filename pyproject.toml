@@ -14,4 +14,5 @@ dependencies = [
     "python-whois>=0.9.5",
     "requests>=2.32.3",
     "werkzeug>=3.1.3",
+    "defusedxml>=0.7.1",
 ]
