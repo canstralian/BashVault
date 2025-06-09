@@ -344,8 +344,18 @@ function startNewScan(targetId, portsId, modulesName) {
 }
 
 function checkScanStatus(scanId) {
+    if (!scanId) {
+        console.error('Error checking scan status: No scan ID provided');
+        return Promise.resolve(null);
+    }
+    
     return fetch(`/api/scan_status/${scanId}`)
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        })
         .catch(error => {
             console.error('Error checking scan status:', error);
             return null;
@@ -353,8 +363,18 @@ function checkScanStatus(scanId) {
 }
 
 function getScanResults(scanId) {
+    if (!scanId) {
+        console.error('Error getting scan results: No scan ID provided');
+        return Promise.resolve(null);
+    }
+    
     return fetch(`/api/scan_results/${scanId}`)
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        })
         .catch(error => {
             console.error('Error getting scan results:', error);
             return null;
