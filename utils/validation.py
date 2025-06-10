@@ -5,7 +5,6 @@ Enhanced security validation functions
 """
 
 import re
-import os
 import ipaddress
 import socket
 from urllib.parse import urlparse
@@ -579,6 +578,8 @@ def validate_wordlist_file(file_path: str) -> bool:
     Returns:
         bool: True if file is valid and readable, False otherwise
     """
+    import os
+    
     if not file_path or not isinstance(file_path, str):
         return False
     

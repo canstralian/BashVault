@@ -13,14 +13,14 @@ function formatDateTime(dateString) {
 
 function formatDuration(startTime, endTime) {
     if (!startTime || !endTime) return 'N/A';
-    
+
     const start = new Date(startTime);
     const end = new Date(endTime);
     const duration = Math.floor((end - start) / 1000);
-    
+
     if (duration < 60) return duration + 's';
     if (duration < 3600) return Math.floor(duration / 60) + 'm ' + (duration % 60) + 's';
-    
+
     const hours = Math.floor(duration / 3600);
     const minutes = Math.floor((duration % 3600) / 60);
     return hours + 'h ' + minutes + 'm';
@@ -33,10 +33,10 @@ function showNotification(message, type = 'info') {
         ${message}
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     `;
-    
+
     const container = document.querySelector('.container-fluid');
     container.insertBefore(alertDiv, container.firstChild);
-    
+
     // Auto dismiss after 5 seconds
     setTimeout(() => {
         alertDiv.remove();
@@ -46,7 +46,7 @@ function showNotification(message, type = 'info') {
 // Dashboard specific functions
 function initializeDashboard() {
     loadDashboardStats();
-    
+
     // Set up auto-refresh
     refreshInterval = setInterval(loadDashboardStats, 30000);
 }
@@ -73,24 +73,24 @@ function updateDashboardStats(data) {
     const completedScans = document.getElementById('completed-scans');
     const runningScans = document.getElementById('running-scans');
     const criticalFindings = document.getElementById('critical-findings');
-    
+
     if (totalScans) totalScans.textContent = data.total_scans || 0;
     if (completedScans) completedScans.textContent = data.completed_scans || 0;
     if (runningScans) runningScans.textContent = data.running_scans || 0;
     if (criticalFindings) criticalFindings.textContent = data.critical_findings || 0;
-    
+
     // Update recent scans if container exists
     const recentScansContainer = document.getElementById('recent-scans');
     if (recentScansContainer && data.recent_scans) {
         updateRecentScans(data.recent_scans);
     }
-    
+
     // Update activity chart if container exists
     const chartContainer = document.getElementById('activity-chart');
     if (chartContainer && data.activity_data) {
         updateActivityChart(data.activity_data);
     }
-    
+
     // Update findings overview if container exists
     const findingsContainer = document.getElementById('findings-overview');
     if (findingsContainer && data.findings_summary) {
@@ -100,32 +100,32 @@ function updateDashboardStats(data) {
 
 function updateRecentScans(scans) {
     const container = document.getElementById('recent-scans');
-    
+
     if (!scans || scans.length === 0) {
         container.innerHTML = `
             <div class="text-center text-muted py-3">
                 <i class="fas fa-search fa-2x mb-2"></i>
                 <p class="mb-2">No recent scans</p>
                 <a href="/scan" class="btn btn-outline-primary btn-sm">
-                    <span class="d-none d-sm-inline">Start Your First </span>Scan
+                    <span class="d-none d-sm.inline">Start Your First </span>Scan
                 </a>
             </div>
         `;
         return;
     }
-    
+
     let html = '';
     const isMobile = window.innerWidth < 768;
     const displayCount = isMobile ? 3 : 5;
-    
+
     scans.slice(0, displayCount).forEach(scan => {
         const statusClass = getStatusClass(scan.status);
         const timeAgo = getTimeAgo(scan.started_at);
-        
+
         // Truncate target for mobile
         const displayTarget = isMobile && scan.target.length > 20 ? 
             scan.target.substring(0, 17) + '...' : scan.target;
-        
+
         html += `
             <div class="d-flex justify-content-between align-items-center mb-2 p-2 border rounded" style="cursor: pointer;" 
                  onclick="${scan.status === 'completed' ? `window.location.href='/results/${scan.id}'` : 'void(0)'}">
@@ -142,22 +142,22 @@ function updateRecentScans(scans) {
             </div>
         `;
     });
-    
+
     container.innerHTML = html;
 }
 
 function updateActivityChart(data) {
     const canvas = document.getElementById('activity-chart');
     if (!canvas) return;
-    
+
     const ctx = canvas.getContext('2d');
     const isMobile = window.innerWidth < 768;
-    
+
     // Destroy existing chart if it exists
     if (dashboardCharts.activity) {
         dashboardCharts.activity.destroy();
     }
-    
+
     dashboardCharts.activity = new Chart(ctx, {
         type: 'line',
         data: {
@@ -228,7 +228,7 @@ function updateActivityChart(data) {
 
 function updateFindingsOverview(findings) {
     const container = document.getElementById('findings-overview');
-    
+
     if (!findings || Object.keys(findings).length === 0) {
         container.innerHTML = `
             <div class="text-center text-muted py-4">
@@ -239,16 +239,16 @@ function updateFindingsOverview(findings) {
         `;
         return;
     }
-    
+
     let html = '<div class="row">';
-    
+
     const severityConfig = {
         critical: { color: 'danger', icon: 'exclamation-triangle' },
         high: { color: 'warning', icon: 'exclamation' },
         medium: { color: 'info', icon: 'info-circle' },
         low: { color: 'secondary', icon: 'minus-circle' }
     };
-    
+
     Object.entries(findings).forEach(([severity, count]) => {
         if (count > 0) {
             const config = severityConfig[severity];
@@ -265,7 +265,7 @@ function updateFindingsOverview(findings) {
             `;
         }
     });
-    
+
     html += '</div>';
     container.innerHTML = html;
 }
@@ -283,16 +283,16 @@ function getStatusClass(status) {
 
 function getTimeAgo(dateString) {
     if (!dateString) return 'Unknown';
-    
+
     const date = new Date(dateString);
     const now = new Date();
     const diff = Math.floor((now - date) / 1000);
-    
+
     if (diff < 60) return 'Just now';
     if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
     if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
     if (diff < 604800) return Math.floor(diff / 86400) + 'd ago';
-    
+
     return date.toLocaleDateString();
 }
 
@@ -302,23 +302,23 @@ function startNewScan(targetId, portsId, modulesName) {
     const ports = document.getElementById(portsId).value.trim();
     const modules = Array.from(document.querySelectorAll(`input[name="${modulesName}"]:checked`))
                          .map(cb => cb.value);
-    
+
     if (!target) {
         showNotification('Please enter a target', 'warning');
         return false;
     }
-    
+
     if (modules.length === 0) {
         showNotification('Please select at least one module', 'warning');
         return false;
     }
-    
+
     const scanData = {
         target: target,
         ports: ports || '1-1000',
         modules: modules
     };
-    
+
     return fetch('/api/start_scan', {
         method: 'POST',
         headers: {
@@ -348,7 +348,7 @@ function checkScanStatus(scanId) {
         console.error('Error checking scan status: No scan ID provided');
         return Promise.resolve(null);
     }
-    
+
     return fetch(`/api/scan_status/${scanId}`)
         .then(response => {
             if (!response.ok) {
@@ -367,7 +367,7 @@ function getScanResults(scanId) {
         console.error('Error getting scan results: No scan ID provided');
         return Promise.resolve(null);
     }
-    
+
     return fetch(`/api/scan_results/${scanId}`)
         .then(response => {
             if (!response.ok) {
@@ -424,24 +424,24 @@ function exportReport(scanId, format) {
 function initializeSearch(inputId, tableId) {
     const searchInput = document.getElementById(inputId);
     const table = document.getElementById(tableId);
-    
+
     if (!searchInput || !table) return;
-    
+
     searchInput.addEventListener('input', function() {
         const searchTerm = this.value.toLowerCase();
         const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
-        
+
         for (let row of rows) {
             const cells = row.getElementsByTagName('td');
             let matchFound = false;
-            
+
             for (let cell of cells) {
                 if (cell.textContent.toLowerCase().includes(searchTerm)) {
                     matchFound = true;
                     break;
                 }
             }
-            
+
             row.style.display = matchFound ? '' : 'none';
         }
     });
@@ -451,20 +451,20 @@ function initializeSearch(inputId, tableId) {
 function validateScanForm(formId) {
     const form = document.getElementById(formId);
     if (!form) return false;
-    
+
     const target = form.querySelector('input[name="target"]').value.trim();
     const modules = form.querySelectorAll('input[name="modules"]:checked');
-    
+
     if (!target) {
         showNotification('Please enter a target', 'warning');
         return false;
     }
-    
+
     if (modules.length === 0) {
         showNotification('Please select at least one module', 'warning');
         return false;
     }
-    
+
     return true;
 }
 
@@ -504,15 +504,15 @@ function clearAllModules() {
 function updateEstimatedTime() {
     const estimatedTimeElement = document.getElementById('estimated-time');
     if (!estimatedTimeElement) return;
-    
+
     const checkedModules = document.querySelectorAll('input[name="modules"]:checked');
     const moduleCount = checkedModules.length;
-    
+
     if (moduleCount === 0) {
         estimatedTimeElement.textContent = 'Select modules to see estimate';
         return;
     }
-    
+
     const timeEstimates = {
         network_scan: 5,
         dns_enum: 3,
@@ -523,12 +523,12 @@ function updateEstimatedTime() {
         advanced_dns: 7,
         cloud_assets: 12
     };
-    
+
     let totalTime = 0;
     checkedModules.forEach(cb => {
         totalTime += timeEstimates[cb.value] || 5;
     });
-    
+
     estimatedTimeElement.textContent = `Approximately ${totalTime} minutes`;
 }
 
@@ -541,17 +541,17 @@ function startScanPolling(scanId, progressCallback) {
                     clearInterval(pollInterval);
                     return;
                 }
-                
+
                 if (progressCallback) {
                     progressCallback(data);
                 }
-                
+
                 if (data.status === 'completed' || data.status === 'failed') {
                     clearInterval(pollInterval);
                 }
             });
     }, 2000);
-    
+
     return pollInterval;
 }
 
@@ -560,7 +560,7 @@ function cleanup() {
     if (refreshInterval) {
         clearInterval(refreshInterval);
     }
-    
+
     // Destroy charts
     Object.values(dashboardCharts).forEach(chart => {
         if (chart && typeof chart.destroy === 'function') {
@@ -575,7 +575,7 @@ function handleResize() {
     if (dashboardCharts.activity) {
         dashboardCharts.activity.resize();
     }
-    
+
     // Update recent scans display
     const container = document.getElementById('recent-scans');
     if (container && container.innerHTML && !container.innerHTML.includes('No recent scans')) {
@@ -595,7 +595,7 @@ window.addEventListener('resize', function() {
 document.addEventListener('DOMContentLoaded', function() {
     // Check which page we're on and initialize accordingly
     const pathname = window.location.pathname;
-    
+
     if (pathname === '/' || pathname === '/dashboard') {
         initializeDashboard();
     } else if (pathname.startsWith('/results/')) {
@@ -606,7 +606,7 @@ document.addEventListener('DOMContentLoaded', function() {
     } else if (pathname === '/history') {
         initializeSearch('search-input', 'scans-table');
     }
-    
+
     // Add module checkbox listeners if they exist
     const moduleCheckboxes = document.querySelectorAll('input[name="modules"]');
     if (moduleCheckboxes.length > 0) {
@@ -615,12 +615,12 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         updateEstimatedTime();
     }
-    
+
     // Add touch event handling for better mobile experience
     if ('ontouchstart' in window) {
         document.body.classList.add('touch-device');
     }
-    
+
     // Prevent zoom on double tap for form inputs on iOS
     let lastTouchEnd = 0;
     document.addEventListener('touchend', function (event) {
