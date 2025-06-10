@@ -1,0 +1,114 @@
+Here’s a full patch-ready diff and explanation for both files based on your codebase structure.
+
+---
+
+## Patch for `modules/vulnerability_scanner.py`
+
+**Before:**
+
+```python
+response = requests.get(url, timeout=5, verify=False)
+response = requests.request(method, url, timeout=5, verify=False)
+response = requests.get(base_url, timeout=self.timeout, verify=False)
+```
+
+**After (using a helper):**
+
+```python
+import logging
+import requests
+
+logger = logging.getLogger(__name__)
+
+def safe_request(method, url, timeout=5, **kwargs):
+    # Remove explicit verify=False, force verification enabled
+    if 'verify' in kwargs:
+        kwargs.pop('verify')
+    try:
+        response = requests.request(method, url, timeout=timeout, verify=True, **kwargs)
+        response.raise_for_status()
+        return response
+    except requests.exceptions.SSLError as ssl_err:
+        logger.error(f"SSL verification failed for {url}: {ssl_err}")
+        raise
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Request failed for {url}: {e}")
+        raise
+
+# Example usage: replace all requests calls
+# response = safe_request('GET', url)
+# response = safe_request(method, base_url, timeout=5)
+```
+
+**Apply this by:**
+
+* Replace all direct `requests.get` and `requests.request` calls with `safe_request`.
+* Remove all `verify=False`.
+
+---
+
+## Patch for `static/js/dashboard.js`
+
+**Unsafe:**
+
+```js
+alertDiv.innerHTML = `
+    ${message}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+`;
+```
+
+**Safe replacement:**
+
+```js
+// Clear previous content safely
+alertDiv.textContent = message;
+
+// Create close button
+const closeBtn = document.createElement('button');
+closeBtn.type = 'button';
+closeBtn.className = 'btn-close';
+closeBtn.setAttribute('data-bs-dismiss', 'alert');
+
+// Append close button safely
+alertDiv.appendChild(closeBtn);
+```
+
+---
+
+**If you must insert HTML with user input**, sanitize first using DOMPurify:
+
+1. Add DOMPurify to your project, e.g., via CDN:
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/dompurify@2.4.0/dist/purify.min.js"></script>
+```
+
+2. Then sanitize:
+
+```js
+const cleanMessage = DOMPurify.sanitize(message);
+alertDiv.innerHTML = `
+    ${cleanMessage}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+`;
+```
+
+---
+
+## Summary & Next Steps
+
+* Replace all `verify=False` with secure request handling in Python.
+* Refactor all `innerHTML` assignments that use user content in JS.
+* Add error logging and graceful SSL failure handling.
+* Add DOMPurify if you want to allow sanitized HTML inputs safely.
+
+---
+
+If you want, I can generate:
+
+* Complete patch files ready for Git/GitHub
+* Unit tests or integration test suggestions for these changes
+* Example error handling wrappers for the Python requests calls
+
+Just say which next step you prefer!
