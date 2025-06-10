@@ -5,6 +5,12 @@ let dashboardCharts = {};
 let refreshInterval = null;
 
 // Utility functions
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 function formatDateTime(dateString) {
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
@@ -122,9 +128,10 @@ function updateRecentScans(scans) {
         const statusClass = getStatusClass(scan.status);
         const timeAgo = getTimeAgo(scan.started_at);
 
-        // Truncate target for mobile
-        const displayTarget = isMobile && scan.target.length > 20 ? 
-            scan.target.substring(0, 17) + '...' : scan.target;
+        // Truncate target for mobile and escape HTML
+        const safeTarget = escapeHtml(scan.target);
+        const displayTarget = isMobile && safeTarget.length > 20 ? 
+            safeTarget.substring(0, 17) + '...' : safeTarget;
 
         html += `
             <div class="d-flex justify-content-between align-items-center mb-2 p-2 border rounded" style="cursor: pointer;" 
