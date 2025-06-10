@@ -5,7 +5,7 @@ channel = "stable-24_05"
 packages = ["cacert", "cargo", "libiconv", "libxcrypt", "nmap", "openssl", "pkg-config", "rustc"]
 
 [workflows]
-runButton = "Project"
+runButton = "Web Dashboard"
 
 [[workflows.workflow]]
 name = "Project"
@@ -48,6 +48,15 @@ author = "agent"
 task = "shell.exec"
 args = "python web_dashboard_simple.py"
 waitForPort = 5000
+
+[[workflows.workflow]]
+name = "Web Dashboard"
+author = 25868489
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python web_dashboard.py"
 
 [deployment]
 run = ["sh", "-c", "pip install python-nmap requests dnspython python-whois cryptography jinja2 && python pentester.py --help"]
