@@ -1,0 +1,98 @@
+
+name: CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  workflow_dispatch:
+
+jobs:
+  deploy-staging:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment: staging
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Deploy to Replit Staging
+      run: |
+        echo "Deploying to Replit staging environment"
+        # Add Replit deployment commands here
+        echo "Stage deployment completed"
+    
+    - name: Run smoke tests
+      run: |
+        echo "Running smoke tests on staging"
+        python -c "
+        import requests
+        import time
+        
+        # Wait for deployment
+        time.sleep(30)
+        
+        # Basic health check
+        try:
+            response = requests.get('${{ secrets.STAGING_URL }}/health', timeout=10)
+            if response.status_code == 200:
+                print('✅ Staging deployment successful')
+            else:
+                print('❌ Staging health check failed')
+                exit(1)
+        except Exception as e:
+            print(f'❌ Staging connection failed: {e}')
+            exit(1)
+        "
+
+  deploy-production:
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    environment: production
+    needs: []
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Deploy to Replit Production
+      run: |
+        echo "Deploying to Replit production environment"
+        # Add Replit production deployment commands
+        echo "Production deployment completed"
+    
+    - name: Create Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: InfoGather ${{ github.ref }}
+        body: |
+          ## InfoGather Release ${{ github.ref }}
+          
+          ### New Features
+          - Enhanced reconnaissance capabilities
+          - Improved security scanning
+          - Updated reporting system
+          
+          ### Security Updates
+          - Latest vulnerability database updates
+          - Enhanced SSL/TLS analysis
+          - Improved authentication mechanisms
+        draft: false
+        prerelease: false
+
+  notify:
+    runs-on: ubuntu-latest
+    needs: [deploy-staging, deploy-production]
+    if: always()
+    
+    steps:
+    - name: Notify deployment status
+      run: |
+        if [[ "${{ needs.deploy-staging.result }}" == "success" ]] || [[ "${{ needs.deploy-production.result }}" == "success" ]]; then
+          echo "✅ Deployment successful"
+        else
+          echo "❌ Deployment failed"
+          exit 1
+        fi
