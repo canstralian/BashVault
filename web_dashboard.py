@@ -10,11 +10,19 @@ import os
 import time
 import threading
 import uuid
+import os
 import sqlite3
 from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
-from models import db, User, Scan, ScanResult, Finding, ScanSummary, AuditLog, init_db
+
+# Try to import PostgreSQL models, fallback to SQLite
+try:
+    from models import db, User, Scan, ScanResult, Finding, ScanSummary, AuditLog, init_db
+    USE_POSTGRESQL = True
+except ImportError:
+    USE_POSTGRESQL = False
+    print("PostgreSQL models not available, using SQLite fallback")
 
 # Import InfoGather modules
 from modules.network_scanner import NetworkScanner
@@ -31,16 +39,21 @@ from utils.validation import validate_target, validate_ports
 app = Flask(__name__)
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', os.urandom(24))
 
-# Configure PostgreSQL database
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-    'pool_recycle': 300,
-    'pool_pre_ping': True,
-}
-
-# Initialize database
-init_db(app)
+# Configure database based on availability
+if USE_POSTGRESQL and os.environ.get('DATABASE_URL'):
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+        'pool_recycle': 300,
+        'pool_pre_ping': True,
+    }
+    # Initialize PostgreSQL database
+    init_db(app)
+else:
+    # Fallback to SQLite
+    USE_POSTGRESQL = False
+    if not os.path.exists('infogather.db'):
+        init_sqlite_db()
 
 # Global variables for scan management
 active_scans = {}
@@ -56,12 +69,78 @@ def require_auth(f):
         return f(*args, **kwargs)
     return decorated_function
 
+def init_sqlite_db():
+    """Initialize SQLite database as fallback"""
+    conn = sqlite3.connect('infogather.db')
+    cursor = conn.cursor()
+    
+    # Create tables
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            email TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            last_login TIMESTAMP,
+            is_active BOOLEAN DEFAULT 1
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS scans (
+            id TEXT PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id),
+            target TEXT NOT NULL,
+            modules TEXT NOT NULL,
+            status TEXT DEFAULT 'pending',
+            started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            completed_at TIMESTAMP,
+            progress INTEGER DEFAULT 0,
+            current_module TEXT,
+            error_message TEXT
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS scan_results (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            scan_id TEXT REFERENCES scans(id) ON DELETE CASCADE,
+            results TEXT NOT NULL
+        )
+    ''')
+    
+    # Create default admin user if not exists
+    cursor.execute('SELECT id FROM users WHERE username = ?', ('admin',))
+    if not cursor.fetchone():
+        password_hash = generate_password_hash('admin123')
+        cursor.execute(
+            'INSERT INTO users (username, password_hash) VALUES (?, ?)',
+            ('admin', password_hash)
+        )
+        print("Created default admin user: admin / admin123")
+    
+    conn.commit()
+    cursor.close()
+    conn.close()
+
 def get_user_info(user_id):
     """Get user information from database"""
-    user = User.query.get(user_id)
-    if user:
-        return {'username': user.username, 'email': user.email, 'role': getattr(user, 'role', 'user')}
-    return None
+    if USE_POSTGRESQL:
+        user = User.query.get(user_id)
+        if user:
+            return {'username': user.username, 'email': user.email, 'role': getattr(user, 'role', 'user')}
+        return None
+    else:
+        conn = sqlite3.connect('infogather.db')
+        cursor = conn.cursor()
+        cursor.execute('SELECT username, email FROM users WHERE id = ?', (user_id,))
+        result = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        if result:
+            return {'username': result[0], 'email': result[1], 'role': 'user'}
+        return None
 
 @app.route('/')
 def index():
@@ -79,13 +158,26 @@ def login():
         username = request.form['username']
         password = request.form['password']
         
-        user = User.query.filter_by(username=username).first()
-        
-        if user and check_password_hash(user.password_hash, password):
-            session['user_id'] = user.id
-            return redirect(url_for('index'))
+        if USE_POSTGRESQL:
+            user = User.query.filter_by(username=username).first()
+            if user and check_password_hash(user.password_hash, password):
+                session['user_id'] = user.id
+                user.last_login = datetime.now()
+                db.session.commit()
+                return redirect(url_for('index'))
         else:
-            return render_template('login.html', error='Invalid credentials')
+            conn = sqlite3.connect('infogather.db')
+            cursor = conn.cursor()
+            cursor.execute('SELECT id, password_hash FROM users WHERE username = ?', (username,))
+            result = cursor.fetchone()
+            cursor.close()
+            conn.close()
+            
+            if result and check_password_hash(result[1], password):
+                session['user_id'] = result[0]
+                return redirect(url_for('index'))
+        
+        return render_template('login.html', error='Invalid credentials')
     
     return render_template('login.html')
 
@@ -108,33 +200,56 @@ def start_scan():
     """Start a new security scan"""
     data = request.get_json()
     
-    # Validate input
+    # Input validation and sanitization
     target = data.get('target', '').strip()
-    if not target or not validate_target(target):
-        return jsonify({'error': 'Invalid target specified'}), 400
+    if not target:
+        return jsonify({'error': 'Target is required'}), 400
+    
+    if len(target) > 255:
+        return jsonify({'error': 'Target too long'}), 400
+    
+    if not validate_target(target):
+        return jsonify({'error': 'Invalid target format'}), 400
     
     ports = data.get('ports', '1-1000')
     if not validate_ports(ports):
         return jsonify({'error': 'Invalid port specification'}), 400
     
     modules = data.get('modules', [])
-    if not modules:
-        return jsonify({'error': 'No modules selected'}), 400
+    if not modules or not isinstance(modules, list):
+        return jsonify({'error': 'Invalid modules selection'}), 400
+    
+    # Rate limiting - max 5 concurrent scans per user
+    user_active_scans = sum(1 for scan in active_scans.values() 
+                           if scan.get('user_id') == session['user_id'] and scan.get('status') == 'running')
+    if user_active_scans >= 5:
+        return jsonify({'error': 'Too many active scans. Please wait for some to complete.'}), 429
     
     # Generate scan ID
     scan_id = str(uuid.uuid4())
     
     # Store scan in database
-    scan = Scan(
-        id=scan_id,
-        user_id=session['user_id'],
-        target=target,
-        modules=json.dumps(modules),
-        status='running',
-        started_at=datetime.now()
-    )
-    db.session.add(scan)
-    db.session.commit()
+    if USE_POSTGRESQL:
+        scan = Scan(
+            id=scan_id,
+            user_id=session['user_id'],
+            target=target,
+            modules=json.dumps(modules),
+            status='running',
+            started_at=datetime.now()
+        )
+        db.session.add(scan)
+        db.session.commit()
+    else:
+        conn = sqlite3.connect('infogather.db')
+        cursor = conn.cursor()
+        cursor.execute(
+            'INSERT INTO scans (id, user_id, target, modules, status, started_at) VALUES (?, ?, ?, ?, ?, ?)',
+            (scan_id, session['user_id'], target, json.dumps(modules), 'running', datetime.now())
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
     
     # Initialize scan tracking
     active_scans[scan_id] = {
@@ -275,19 +390,34 @@ def run_scan(scan_id, target, ports, modules):
         scan_results[scan_id] = results
         
         # Update database
-        scan = Scan.query.get(scan_id)
-        if scan:
-            scan.status = 'completed'
-            scan.completed_at = datetime.now()
-            db.session.commit()
-            
-            # Store results
-            scan_result = ScanResult(
-                scan_id=scan_id,
-                results=json.dumps(results)
+        if USE_POSTGRESQL:
+            scan = Scan.query.get(scan_id)
+            if scan:
+                scan.status = 'completed'
+                scan.completed_at = datetime.now()
+                db.session.commit()
+                
+                # Store results
+                scan_result = ScanResult(
+                    scan_id=scan_id,
+                    results=json.dumps(results)
+                )
+                db.session.add(scan_result)
+                db.session.commit()
+        else:
+            conn = sqlite3.connect('infogather.db')
+            cursor = conn.cursor()
+            cursor.execute(
+                'UPDATE scans SET status = ?, completed_at = ? WHERE id = ?',
+                ('completed', datetime.now(), scan_id)
             )
-            db.session.add(scan_result)
-            db.session.commit()
+            cursor.execute(
+                'INSERT INTO scan_results (scan_id, results) VALUES (?, ?)',
+                (scan_id, json.dumps(results))
+            )
+            conn.commit()
+            cursor.close()
+            conn.close()
         
     except Exception as e:
         # Handle scan errors

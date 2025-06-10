@@ -1,66 +1,262 @@
+#!/usr/bin/env python3
 """
-Validation Utilities Module
-Contains functions for input validation and sanitization
+Input validation utilities for InfoGather
+Enhanced security validation functions
 """
 
 import re
-import socket
 import ipaddress
+import socket
 from urllib.parse import urlparse
-from typing import Union, List, Optional
-from .network_utils import is_valid_ip, is_valid_cidr, is_valid_hostname, port_range_to_list
 
-def validate_target(target: str) -> bool:
+def validate_target(target):
     """
-    Validate target specification (IP, hostname, or CIDR)
-    
+    Validate target input (IP address, hostname, or CIDR)
+
     Args:
         target (str): Target to validate
-        
+
     Returns:
-        bool: True if target is valid, False otherwise
+        bool: True if valid, False otherwise
     """
     if not target or not isinstance(target, str):
         return False
-    
+
     target = target.strip()
-    
-    # Check if empty after stripping
-    if not target:
+
+    # Check length
+    if len(target) > 255:
         return False
-    
-    # Check for CIDR notation
-    if '/' in target:
-        return is_valid_cidr(target)
-    
-    # Check if it's an IP address
-    if is_valid_ip(target):
+
+    # Check for malicious patterns
+    malicious_patterns = [
+        r'[;&|`$(){}[\]<>]',  # Shell metacharacters
+        r'\.\./',              # Directory traversal
+        r'javascript:',        # JavaScript injection
+        r'data:',             # Data URIs
+        r'file:',             # File URIs
+    ]
+
+    for pattern in malicious_patterns:
+        if re.search(pattern, target, re.IGNORECASE):
+            return False
+
+    try:
+        # Check if it's a valid IP address
+        ipaddress.ip_address(target)
         return True
-    
-    # Check if it's a valid hostname
-    if is_valid_hostname(target):
+    except ValueError:
+        pass
+
+    try:
+        # Check if it's a valid CIDR range
+        ipaddress.ip_network(target, strict=False)
         return True
-    
+    except ValueError:
+        pass
+
+    # Check if it's a valid hostname/domain
+    if validate_hostname(target):
+        return True
+
     return False
 
-def validate_ports(ports: str) -> bool:
+def validate_hostname(hostname):
+    """
+    Validate hostname according to RFC standards
+
+    Args:
+        hostname (str): Hostname to validate
+
+    Returns:
+        bool: True if valid, False otherwise
+    """
+    if not hostname or len(hostname) > 253:
+        return False
+
+    # Remove trailing dot if present
+    if hostname.endswith('.'):
+        hostname = hostname[:-1]
+
+    # Check each label
+    labels = hostname.split('.')
+    if not labels:
+        return False
+
+    for label in labels:
+        if not label or len(label) > 63:
+            return False
+
+        # Label must start and end with alphanumeric
+        if not re.match(r'^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$', label):
+            return False
+
+    # At least one dot for domain names (unless it's localhost)
+    if len(labels) == 1 and hostname.lower() != 'localhost':
+        return False
+
+    return True
+
+def validate_ports(ports):
     """
     Validate port specification
-    
+
     Args:
-        ports (str): Port specification to validate
-        
+        ports (str): Port specification (e.g., '80', '1-1000', '80,443,8080')
+
     Returns:
-        bool: True if ports specification is valid, False otherwise
+        bool: True if valid, False otherwise
     """
     if not ports or not isinstance(ports, str):
         return False
-    
+
+    ports = ports.strip()
+
+    # Check for malicious patterns
+    if re.search(r'[;&|`$(){}[\]<>]', ports):
+        return False
+
     try:
-        # Use the port_range_to_list function to validate
-        port_list = port_range_to_list(ports.strip())
-        return len(port_list) > 0
-    except ValueError:
+        # Single port
+        if ports.isdigit():
+            port = int(ports)
+            return 1 <= port <= 65535
+
+        # Port range
+        if '-' in ports and ports.count('-') == 1:
+            start, end = ports.split('-')
+            start_port = int(start.strip())
+            end_port = int(end.strip())
+
+            if not (1 <= start_port <= 65535 and 1 <= end_port <= 65535):
+                return False
+
+            if start_port > end_port:
+                return False
+
+            # Prevent excessive ranges
+            if end_port - start_port > 10000:
+                return False
+
+            return True
+
+        # Comma-separated ports
+        if ',' in ports:
+            port_list = ports.split(',')
+            if len(port_list) > 100:  # Limit number of ports
+                return False
+
+            for port in port_list:
+                port = port.strip()
+                if not port.isdigit():
+                    return False
+
+                port_num = int(port)
+                if not (1 <= port_num <= 65535):
+                    return False
+
+            return True
+
+    except (ValueError, AttributeError):
+        return False
+
+    return False
+
+def validate_scan_modules(modules):
+    """
+    Validate scan module selection
+
+    Args:
+        modules (list): List of module names
+
+    Returns:
+        bool: True if valid, False otherwise
+    """
+    if not modules or not isinstance(modules, list):
+        return False
+
+    valid_modules = {
+        'network_scan',
+        'dns_enum', 
+        'whois',
+        'ssl_analysis',
+        'vuln_scan',
+        'social_intel',
+        'advanced_dns',
+        'cloud_assets'
+    }
+
+    # Check each module
+    for module in modules:
+        if not isinstance(module, str) or module not in valid_modules:
+            return False
+
+    # Limit number of modules
+    if len(modules) > len(valid_modules):
+        return False
+
+    return True
+
+def sanitize_filename(filename):
+    """
+    Sanitize filename for safe file operations
+
+    Args:
+        filename (str): Filename to sanitize
+
+    Returns:
+        str: Sanitized filename
+    """
+    if not filename:
+        return 'unnamed'
+
+    # Remove path separators and dangerous characters
+    filename = re.sub(r'[<>:"/\\|?*]', '_', filename)
+    filename = re.sub(r'\.\.', '_', filename)
+
+    # Limit length
+    if len(filename) > 100:
+        filename = filename[:100]
+
+    # Ensure it doesn't start with dot or dash
+    filename = re.sub(r'^[.-]', '_', filename)
+
+    return filename or 'unnamed'
+
+def validate_json_input(data, max_size=1024*1024):
+    """
+    Validate JSON input for size and structure
+
+    Args:
+        data: JSON data to validate
+        max_size (int): Maximum size in bytes
+
+    Returns:
+        bool: True if valid, False otherwise
+    """
+    try:
+        import json
+        json_str = json.dumps(data)
+
+        # Check size
+        if len(json_str.encode('utf-8')) > max_size:
+            return False
+
+        # Check depth (prevent deeply nested objects)
+        def check_depth(obj, current_depth=0, max_depth=10):
+            if current_depth > max_depth:
+                return False
+
+            if isinstance(obj, dict):
+                return all(check_depth(v, current_depth + 1, max_depth) for v in obj.values())
+            elif isinstance(obj, list):
+                return all(check_depth(item, current_depth + 1, max_depth) for item in obj)
+
+            return True
+
+        return check_depth(data)
+
+    except:
         return False
 
 def validate_url(url: str) -> bool:
@@ -122,9 +318,9 @@ def validate_domain(domain: str) -> bool:
     if domain.startswith(('http://', 'https://')):
         domain = urlparse(domain).netloc
     
-    return is_valid_hostname(domain)
+    return validate_hostname(domain)
 
-def validate_file_path(file_path: str, allowed_extensions: List[str] = None) -> bool:
+def validate_file_path(file_path: str, allowed_extensions: list[str] = None) -> bool:
     """
     Validate file path and extension
     
@@ -182,48 +378,6 @@ def sanitize_input(input_string: str, max_length: int = 1000) -> str:
     
     # Strip leading/trailing whitespace
     sanitized = sanitized.strip()
-    
-    return sanitized
-
-def sanitize_filename(filename: str) -> str:
-    """
-    Sanitize filename to be safe for file system
-    
-    Args:
-        filename (str): Filename to sanitize
-        
-    Returns:
-        str: Sanitized filename
-    """
-    if not filename or not isinstance(filename, str):
-        return "untitled"
-    
-    # Remove or replace invalid filename characters
-    invalid_chars = '<>:"/\\|?*'
-    sanitized = filename
-    
-    for char in invalid_chars:
-        sanitized = sanitized.replace(char, '_')
-    
-    # Remove control characters
-    sanitized = re.sub(r'[\x00-\x1F\x7F]', '', sanitized)
-    
-    # Remove leading/trailing dots and spaces
-    sanitized = sanitized.strip('. ')
-    
-    # Ensure filename is not empty
-    if not sanitized:
-        sanitized = "untitled"
-    
-    # Limit length
-    max_length = 255
-    if len(sanitized) > max_length:
-        name, ext = sanitized.rsplit('.', 1) if '.' in sanitized else (sanitized, '')
-        if ext:
-            max_name_length = max_length - len(ext) - 1
-            sanitized = f"{name[:max_name_length]}.{ext}"
-        else:
-            sanitized = sanitized[:max_length]
     
     return sanitized
 
@@ -345,7 +499,7 @@ def validate_cidr_size(cidr: str, max_hosts: int = 1024) -> bool:
     Returns:
         bool: True if valid and within size limits, False otherwise
     """
-    if not is_valid_cidr(cidr):
+    if not validate_target(cidr):
         return False
     
     try:
