@@ -14,9 +14,9 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from psycopg2 import pool
 import secrets
 import atexit
+from contextlib import contextmanager
 
 # Import InfoGather modules
 from modules.network_scanner import NetworkScanner
@@ -42,135 +42,113 @@ scan_results = {}
 scans_lock = threading.RLock()
 results_lock = threading.RLock()
 
-# Database connection pool
-db_pool = None
+# Database connection parameters
+DB_CONFIG = {
+    'host': os.environ.get('PGHOST'),
+    'database': os.environ.get('PGDATABASE'),
+    'user': os.environ.get('PGUSER'),
+    'password': os.environ.get('PGPASSWORD'),
+    'port': os.environ.get('PGPORT')
+}
 
 # Initialize threat monitor
 threat_monitor = ThreatMonitor(verbose=True)
 threat_monitor.start_monitoring(check_interval=300)  # Check every 5 minutes
+
+@contextmanager
+def get_db_connection():
+    """Context manager for database connections"""
+    conn = None
+    try:
+        conn = psycopg2.connect(**DB_CONFIG)
+        yield conn
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        raise e
+    finally:
+        if conn:
+            conn.close()
 
 # Register cleanup function for application shutdown
 @atexit.register
 def cleanup():
     """Cleanup resources on application shutdown"""
     try:
-        close_db_pool()
         print("Application cleanup completed")
     except Exception as e:
         print(f"Cleanup error: {e}")
 
-def init_db_pool():
-    """Initialize database connection pool"""
-    global db_pool
-    try:
-        db_pool = psycopg2.pool.ThreadedConnectionPool(
-            minconn=1,
-            maxconn=20,
-            host=os.environ.get('PGHOST'),
-            database=os.environ.get('PGDATABASE'),
-            user=os.environ.get('PGUSER'),
-            password=os.environ.get('PGPASSWORD'),
-            port=os.environ.get('PGPORT')
-        )
-        print("Database connection pool initialized successfully")
-    except Exception as e:
-        print(f"Failed to initialize database pool: {e}")
-        raise
-
-def get_db_connection():
-    """Get PostgreSQL database connection from pool"""
-    if db_pool is None:
-        init_db_pool()
-    return db_pool.getconn()
-
-def return_db_connection(conn):
-    """Return connection to pool"""
-    if db_pool and conn:
-        db_pool.putconn(conn)
-
-def close_db_pool():
-    """Close all connections in pool"""
-    global db_pool
-    if db_pool:
-        db_pool.closeall()
-        db_pool = None
-
 def init_database():
     """Initialize PostgreSQL database tables"""
-    conn = None
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # Create users table
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS users (
-                id SERIAL PRIMARY KEY,
-                username VARCHAR(80) UNIQUE NOT NULL,
-                password_hash VARCHAR(255) NOT NULL,
-                email VARCHAR(120),
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                last_login TIMESTAMP,
-                is_active BOOLEAN DEFAULT TRUE
-            )
-        ''')
-        
-        # Create scans table
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS scans (
-                id VARCHAR(36) PRIMARY KEY,
-                user_id INTEGER REFERENCES users(id),
-                target VARCHAR(255) NOT NULL,
-                ports VARCHAR(100),
-                modules TEXT NOT NULL,
-                status VARCHAR(20) DEFAULT 'pending',
-                started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                completed_at TIMESTAMP,
-                progress INTEGER DEFAULT 0,
-                current_module VARCHAR(50),
-                error_message TEXT
-            )
-        ''')
-        
-        # Create scan_results table
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS scan_results (
-                id SERIAL PRIMARY KEY,
-                scan_id VARCHAR(36) REFERENCES scans(id) ON DELETE CASCADE,
-                module_name VARCHAR(50) NOT NULL,
-                result_data TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        ''')
-        
-        # Create default admin user if it doesn't exist
-        cursor.execute('SELECT id FROM users WHERE username = %s', ('admin',))
-        if not cursor.fetchone():
-            # Use environment variable for admin password or generate secure random password
-            admin_password = os.environ.get('ADMIN_PASSWORD')
-            if not admin_password:
-                admin_password = secrets.token_urlsafe(16)
-                print(f"Generated admin password: {admin_password}")
-                print("Store this password securely - it will not be displayed again!")
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
             
-            password_hash = generate_password_hash(admin_password)
-            cursor.execute(
-                'INSERT INTO users (username, password_hash, is_active) VALUES (%s, %s, %s)',
-                ('admin', password_hash, True)
-            )
-            print("Created default admin user with secure password")
-        
-        conn.commit()
-        cursor.close()
-        
+            # Create users table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS users (
+                    id SERIAL PRIMARY KEY,
+                    username VARCHAR(80) UNIQUE NOT NULL,
+                    password_hash VARCHAR(255) NOT NULL,
+                    email VARCHAR(120),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    last_login TIMESTAMP,
+                    is_active BOOLEAN DEFAULT TRUE
+                )
+            ''')
+            
+            # Create scans table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS scans (
+                    id VARCHAR(36) PRIMARY KEY,
+                    user_id INTEGER REFERENCES users(id),
+                    target VARCHAR(255) NOT NULL,
+                    ports VARCHAR(100),
+                    modules TEXT NOT NULL,
+                    status VARCHAR(20) DEFAULT 'pending',
+                    started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    completed_at TIMESTAMP,
+                    progress INTEGER DEFAULT 0,
+                    current_module VARCHAR(50),
+                    error_message TEXT
+                )
+            ''')
+            
+            # Create scan_results table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS scan_results (
+                    id SERIAL PRIMARY KEY,
+                    scan_id VARCHAR(36) REFERENCES scans(id) ON DELETE CASCADE,
+                    module_name VARCHAR(50) NOT NULL,
+                    result_data TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
+            # Create default admin user if it doesn't exist
+            cursor.execute('SELECT id FROM users WHERE username = %s', ('admin',))
+            if not cursor.fetchone():
+                # Use environment variable for admin password or generate secure random password
+                admin_password = os.environ.get('ADMIN_PASSWORD')
+                if not admin_password:
+                    admin_password = secrets.token_urlsafe(16)
+                    print(f"Generated admin password: {admin_password}")
+                    print("Store this password securely - it will not be displayed again!")
+                
+                password_hash = generate_password_hash(admin_password)
+                cursor.execute(
+                    'INSERT INTO users (username, password_hash, is_active) VALUES (%s, %s, %s)',
+                    ('admin', password_hash, True)
+                )
+                print("Created default admin user with secure password")
+            
+            conn.commit()
+            cursor.close()
+            
     except Exception as e:
         print(f"Database initialization error: {e}")
-        if conn:
-            conn.rollback()
         raise
-    finally:
-        if conn:
-            return_db_connection(conn)
 
 def require_auth(f):
     """Decorator to require authentication"""
@@ -197,35 +175,31 @@ def login():
         if not username or not password:
             return render_template('login.html', error='Username and password are required')
         
-        conn = None
         try:
-            conn = get_db_connection()
-            cursor = conn.cursor(cursor_factory=RealDictCursor)
-            cursor.execute('SELECT * FROM users WHERE username = %s AND is_active = TRUE', (username,))
-            user = cursor.fetchone()
-            cursor.close()
-            
-            if user and check_password_hash(user['password_hash'], password):
-                session['user_id'] = user['id']
-                session['username'] = user['username']
-                
-                # Update last login
-                cursor = conn.cursor()
-                cursor.execute('UPDATE users SET last_login = %s WHERE id = %s', 
-                             (datetime.utcnow(), user['id']))
-                conn.commit()
+            with get_db_connection() as conn:
+                cursor = conn.cursor(cursor_factory=RealDictCursor)
+                cursor.execute('SELECT * FROM users WHERE username = %s AND is_active = TRUE', (username,))
+                user = cursor.fetchone()
                 cursor.close()
                 
-                return redirect(url_for('index'))
-            else:
-                return render_template('login.html', error='Invalid credentials')
-                
+                if user and check_password_hash(user['password_hash'], password):
+                    session['user_id'] = user['id']
+                    session['username'] = user['username']
+                    
+                    # Update last login
+                    cursor = conn.cursor()
+                    cursor.execute('UPDATE users SET last_login = %s WHERE id = %s', 
+                                 (datetime.utcnow(), user['id']))
+                    conn.commit()
+                    cursor.close()
+                    
+                    return redirect(url_for('index'))
+                else:
+                    return render_template('login.html', error='Invalid credentials')
+                    
         except Exception as e:
             print(f"Login error: {e}")
             return render_template('login.html', error='Login system temporarily unavailable')
-        finally:
-            if conn:
-                return_db_connection(conn)
     
     return render_template('login.html')
 
@@ -270,43 +244,39 @@ def start_scan():
         
         # Create scan record
         scan_id = str(uuid.uuid4())
-        conn = None
         
         try:
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            
-            cursor.execute('''
-                INSERT INTO scans (id, user_id, target, ports, modules, status, started_at)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
-            ''', (scan_id, session['user_id'], target, ports, json.dumps(modules), 'running', datetime.utcnow()))
-            
-            conn.commit()
-            cursor.close()
-            
-            # Add to active scans with thread safety
-            with scans_lock:
-                active_scans[scan_id] = {
-                    'target': target,
-                    'status': 'starting',
-                    'progress': 0,
-                    'current_module': 'Initializing',
-                    'started_at': datetime.utcnow().isoformat()
-                }
-            
-            # Start scan in background thread
-            thread = threading.Thread(target=run_scan, args=(scan_id, target, ports, modules))
-            thread.daemon = True
-            thread.start()
-            
-            return jsonify({'scan_id': scan_id})
-            
+            with get_db_connection() as conn:
+                cursor = conn.cursor()
+                
+                cursor.execute('''
+                    INSERT INTO scans (id, user_id, target, ports, modules, status, started_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                ''', (scan_id, session['user_id'], target, ports, json.dumps(modules), 'running', datetime.utcnow()))
+                
+                conn.commit()
+                cursor.close()
+                
+                # Add to active scans with thread safety
+                with scans_lock:
+                    active_scans[scan_id] = {
+                        'target': target,
+                        'status': 'starting',
+                        'progress': 0,
+                        'current_module': 'Initializing',
+                        'started_at': datetime.utcnow().isoformat()
+                    }
+                
+                # Start scan in background thread
+                thread = threading.Thread(target=run_scan, args=(scan_id, target, ports, modules))
+                thread.daemon = True
+                thread.start()
+                
+                return jsonify({'scan_id': scan_id})
+                
         except Exception as e:
             print(f"Database error in start_scan: {e}")
             return jsonify({'error': 'Failed to create scan'}), 500
-        finally:
-            if conn:
-                return_db_connection(conn)
                 
     except Exception as e:
         print(f"Error in start_scan: {e}")
@@ -314,7 +284,6 @@ def start_scan():
 
 def run_scan(scan_id, target, ports, modules):
     """Execute the security scan in background"""
-    conn = None
     try:
         # Initialize scan status with thread safety
         with scans_lock:
@@ -334,19 +303,15 @@ def run_scan(scan_id, target, ports, modules):
             
             # Update database
             try:
-                conn = get_db_connection()
-                cursor = conn.cursor()
-                cursor.execute('''
-                    UPDATE scans SET progress = %s, current_module = %s WHERE id = %s
-                ''', (progress, module, scan_id))
-                conn.commit()
-                cursor.close()
+                with get_db_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute('''
+                        UPDATE scans SET progress = %s, current_module = %s WHERE id = %s
+                    ''', (progress, module, scan_id))
+                    conn.commit()
+                    cursor.close()
             except Exception as db_e:
                 print(f"Database update error: {db_e}")
-            finally:
-                if conn:
-                    return_db_connection(conn)
-                    conn = None
             
             # Execute module scan
             try:
@@ -384,20 +349,16 @@ def run_scan(scan_id, target, ports, modules):
                 
                 # Store result in database
                 try:
-                    conn = get_db_connection()
-                    cursor = conn.cursor()
-                    cursor.execute('''
-                        INSERT INTO scan_results (scan_id, module_name, result_data)
-                        VALUES (%s, %s, %s)
-                    ''', (scan_id, module, json.dumps(results[module], default=str)))
-                    conn.commit()
-                    cursor.close()
+                    with get_db_connection() as conn:
+                        cursor = conn.cursor()
+                        cursor.execute('''
+                            INSERT INTO scan_results (scan_id, module_name, result_data)
+                            VALUES (%s, %s, %s)
+                        ''', (scan_id, module, json.dumps(results[module], default=str)))
+                        conn.commit()
+                        cursor.close()
                 except Exception as db_e:
                     print(f"Result storage error: {db_e}")
-                finally:
-                    if conn:
-                        return_db_connection(conn)
-                        conn = None
                 
             except Exception as e:
                 print(f"Module {module} execution error: {e}")
@@ -408,20 +369,16 @@ def run_scan(scan_id, target, ports, modules):
         
         # Update scan status to completed
         try:
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            cursor.execute('''
-                UPDATE scans SET status = %s, completed_at = %s, progress = %s, current_module = %s
-                WHERE id = %s
-            ''', ('completed', datetime.utcnow(), 100, 'Completed', scan_id))
-            conn.commit()
-            cursor.close()
+            with get_db_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    UPDATE scans SET status = %s, completed_at = %s, progress = %s, current_module = %s
+                    WHERE id = %s
+                ''', ('completed', datetime.utcnow(), 100, 'Completed', scan_id))
+                conn.commit()
+                cursor.close()
         except Exception as db_e:
             print(f"Completion update error: {db_e}")
-        finally:
-            if conn:
-                return_db_connection(conn)
-                conn = None
         
         # Store results in memory for quick access with thread safety
         with results_lock:
@@ -452,19 +409,16 @@ def run_scan(scan_id, target, ports, modules):
         print(f"Scan execution error: {e}")
         # Handle scan failure
         try:
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            cursor.execute('''
-                UPDATE scans SET status = %s, error_message = %s, completed_at = %s
-                WHERE id = %s
-            ''', ('failed', str(e), datetime.utcnow(), scan_id))
-            conn.commit()
-            cursor.close()
+            with get_db_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    UPDATE scans SET status = %s, error_message = %s, completed_at = %s
+                    WHERE id = %s
+                ''', ('failed', str(e), datetime.utcnow(), scan_id))
+                conn.commit()
+                cursor.close()
         except Exception as db_e:
             print(f"Error update failed: {db_e}")
-        finally:
-            if conn:
-                return_db_connection(conn)
         
         # Update active scan status
         with scans_lock:
@@ -766,12 +720,29 @@ def monitoring_page():
     """Real-time monitoring dashboard page"""
     return render_template('monitoring.html')
 
+# Memory cleanup function for scan results
+def cleanup_old_scan_results():
+    """Remove old scan results from memory to prevent memory leaks"""
+    with results_lock:
+        # Keep only last 100 scan results in memory
+        if len(scan_results) > 100:
+            # Get oldest scans by timestamp
+            sorted_scans = sorted(scan_results.items(), 
+                                key=lambda x: x[1].get('completed_at', ''), reverse=True)
+            # Keep only the newest 50
+            new_results = dict(sorted_scans[:50])
+            scan_results.clear()
+            scan_results.update(new_results)
+
 if __name__ == '__main__':
-    # Initialize database
-    init_database()
-    
-    print("InfoGather Web Dashboard starting...")
-    print("Default login: admin / admin123")
-    print("Access the dashboard at: http://localhost:5000")
-    
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    try:
+        # Initialize database tables
+        init_database()
+        
+        print("InfoGather Web Dashboard starting...")
+        print("Access the dashboard at: http://localhost:5000")
+        
+        app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
+    except Exception as e:
+        print(f"Failed to start application: {e}")
+        cleanup()
