@@ -42,14 +42,31 @@ scan_results = {}
 scans_lock = threading.RLock()
 results_lock = threading.RLock()
 
-# Database connection parameters
-DB_CONFIG = {
-    'host': os.environ.get('PGHOST'),
-    'database': os.environ.get('PGDATABASE'),
-    'user': os.environ.get('PGUSER'),
-    'password': os.environ.get('PGPASSWORD'),
-    'port': os.environ.get('PGPORT')
-}
+# Use DATABASE_URL from environment (provided by Replit PostgreSQL)
+DATABASE_URL = os.environ.get('DATABASE_URL')
+
+def get_db_config():
+    """Parse DATABASE_URL into connection parameters"""
+    if DATABASE_URL:
+        # Parse postgres://user:pass@host:port/dbname
+        import urllib.parse
+        parsed = urllib.parse.urlparse(DATABASE_URL)
+        return {
+            'host': parsed.hostname,
+            'database': parsed.path[1:],  # Remove leading /
+            'user': parsed.username,
+            'password': parsed.password,
+            'port': parsed.port or 5432
+        }
+    else:
+        # Fallback configuration
+        return {
+            'host': os.environ.get('PGHOST', 'localhost'),
+            'database': os.environ.get('PGDATABASE', 'infogather'),
+            'user': os.environ.get('PGUSER', 'postgres'),
+            'password': os.environ.get('PGPASSWORD', ''),
+            'port': int(os.environ.get('PGPORT', 5432))
+        }
 
 # Initialize threat monitor
 threat_monitor = ThreatMonitor(verbose=True)
@@ -60,7 +77,8 @@ def get_db_connection():
     """Context manager for database connections"""
     conn = None
     try:
-        conn = psycopg2.connect(**DB_CONFIG)
+        db_config = get_db_config()
+        conn = psycopg2.connect(**db_config)
         yield conn
     except Exception as e:
         if conn:
@@ -740,9 +758,9 @@ if __name__ == '__main__':
         init_database()
         
         print("InfoGather Web Dashboard starting...")
-        print("Access the dashboard at: http://localhost:5000")
+        print("Access the dashboard at: http://localhost:5001")
         
-        app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
+        app.run(host='0.0.0.0', port=5001, debug=False, threaded=True)
     except Exception as e:
         print(f"Failed to start application: {e}")
         cleanup()
