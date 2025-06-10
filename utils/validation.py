@@ -321,7 +321,7 @@ def validate_domain(domain: str) -> bool:
     
     return validate_hostname(domain)
 
-def validate_file_path(file_path: str, allowed_extensions: list[str] = None) -> bool:
+def validate_file_path(file_path: str, allowed_extensions: list = None) -> bool:
     """
     Validate file path and extension
     
