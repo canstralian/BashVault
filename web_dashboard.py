@@ -10,8 +10,9 @@ import os
 import time
 import threading
 import uuid
-import os
 import sqlite3
+import logging
+import sys
 from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
@@ -38,6 +39,20 @@ from utils.validation import validate_target, validate_ports
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', os.urandom(24))
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('infogather.log'),
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger(__name__)
+
+# Set Flask's logger level
+app.logger.setLevel(logging.INFO)
 
 # Configure database based on availability
 if USE_POSTGRESQL and os.environ.get('DATABASE_URL'):
@@ -127,20 +142,40 @@ def init_sqlite_db():
 def get_user_info(user_id):
     """Get user information from database"""
     if USE_POSTGRESQL:
-        user = User.query.get(user_id)
-        if user:
-            return {'username': user.username, 'email': user.email, 'role': getattr(user, 'role', 'user')}
-        return None
+        try:
+            user = User.query.get(user_id)
+            if user:
+                # Handle missing role column gracefully
+                role = 'user'
+                try:
+                    role = getattr(user, 'role', 'user')
+                except AttributeError:
+                    pass
+                return {
+                    'username': user.username, 
+                    'email': user.email or '', 
+                    'role': role
+                }
+            return None
+        except Exception as e:
+            logger.error(f"Database query failed: {str(e)}")
+            return None
     else:
-        conn = sqlite3.connect('infogather.db')
-        cursor = conn.cursor()
-        cursor.execute('SELECT username, email FROM users WHERE id = ?', (user_id,))
-        result = cursor.fetchone()
-        cursor.close()
-        conn.close()
-        if result:
-            return {'username': result[0], 'email': result[1], 'role': 'user'}
-        return None
+        conn = None
+        try:
+            conn = sqlite3.connect('infogather.db')
+            cursor = conn.cursor()
+            cursor.execute('SELECT username, email FROM users WHERE id = ?', (user_id,))
+            result = cursor.fetchone()
+            if result:
+                return {'username': result[0], 'email': result[1] or '', 'role': 'user'}
+            return None
+        except Exception as e:
+            logger.error(f"SQLite query failed: {str(e)}")
+            return None
+        finally:
+            if conn:
+                conn.close()
 
 @app.route('/')
 def index():
@@ -198,26 +233,52 @@ def scan_page():
 @require_auth
 def start_scan():
     """Start a new security scan"""
-    data = request.get_json()
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Invalid JSON data'}), 400
+        
+        # Input validation and sanitization
+        target = data.get('target', '').strip()
+        if not target:
+            return jsonify({'error': 'Target is required'}), 400
+        
+        if len(target) > 255:
+            return jsonify({'error': 'Target too long (max 255 characters)'}), 400
+        
+        # Sanitize target - remove potentially dangerous characters
+        import re
+        if not re.match(r'^[a-zA-Z0-9\.\-_:/]+$', target):
+            return jsonify({'error': 'Target contains invalid characters'}), 400
+        
+        if not validate_target(target):
+            return jsonify({'error': 'Invalid target format'}), 400
+        
+        ports = data.get('ports', '1-1000')
+        if not isinstance(ports, str) or len(ports) > 100:
+            return jsonify({'error': 'Invalid port specification'}), 400
+        
+        if not validate_ports(ports):
+            return jsonify({'error': 'Invalid port specification'}), 400
+        
+        modules = data.get('modules', [])
+        if not modules or not isinstance(modules, list):
+            return jsonify({'error': 'Invalid modules selection'}), 400
+        
+        # Validate module names against whitelist
+        valid_modules = {
+            'network_scan', 'dns_enum', 'whois', 'ssl_analysis',
+            'vuln_scan', 'social_intel', 'advanced_dns', 'cloud_assets'
+        }
+        for module in modules:
+            if not isinstance(module, str) or module not in valid_modules:
+                return jsonify({'error': f'Invalid module: {module}'}), 400
     
-    # Input validation and sanitization
-    target = data.get('target', '').strip()
-    if not target:
-        return jsonify({'error': 'Target is required'}), 400
-    
-    if len(target) > 255:
-        return jsonify({'error': 'Target too long'}), 400
-    
-    if not validate_target(target):
-        return jsonify({'error': 'Invalid target format'}), 400
-    
-    ports = data.get('ports', '1-1000')
-    if not validate_ports(ports):
-        return jsonify({'error': 'Invalid port specification'}), 400
-    
-    modules = data.get('modules', [])
-    if not modules or not isinstance(modules, list):
-        return jsonify({'error': 'Invalid modules selection'}), 400
+    except (ValueError, TypeError) as e:
+        return jsonify({'error': 'Invalid request data'}), 400
+    except Exception as e:
+        logger.error(f"Request validation failed: {str(e)}")
+        return jsonify({'error': 'Request validation failed'}), 400
     
     # Rate limiting - max 5 concurrent scans per user
     user_active_scans = sum(1 for scan in active_scans.values() 
@@ -228,28 +289,35 @@ def start_scan():
     # Generate scan ID
     scan_id = str(uuid.uuid4())
     
-    # Store scan in database
-    if USE_POSTGRESQL:
-        scan = Scan(
-            id=scan_id,
-            user_id=session['user_id'],
-            target=target,
-            modules=json.dumps(modules),
-            status='running',
-            started_at=datetime.now()
-        )
-        db.session.add(scan)
-        db.session.commit()
-    else:
-        conn = sqlite3.connect('infogather.db')
-        cursor = conn.cursor()
-        cursor.execute(
-            'INSERT INTO scans (id, user_id, target, modules, status, started_at) VALUES (?, ?, ?, ?, ?, ?)',
-            (scan_id, session['user_id'], target, json.dumps(modules), 'running', datetime.now())
-        )
-        conn.commit()
-        cursor.close()
-        conn.close()
+    # Store scan in database with proper error handling
+    try:
+        if USE_POSTGRESQL:
+            scan = Scan(
+                id=scan_id,
+                user_id=session['user_id'],
+                target=target,
+                modules=json.dumps(modules),
+                status='running',
+                started_at=datetime.now()
+            )
+            db.session.add(scan)
+            db.session.commit()
+        else:
+            conn = None
+            try:
+                conn = sqlite3.connect('infogather.db')
+                cursor = conn.cursor()
+                cursor.execute(
+                    'INSERT INTO scans (id, user_id, target, modules, status, started_at) VALUES (?, ?, ?, ?, ?, ?)',
+                    (scan_id, session['user_id'], target, json.dumps(modules), 'running', datetime.now())
+                )
+                conn.commit()
+            finally:
+                if conn:
+                    conn.close()
+    except Exception as e:
+        print(f"[ERROR] Failed to store scan in database: {str(e)}")
+        return jsonify({'error': 'Failed to initialize scan'}), 500
     
     # Initialize scan tracking
     active_scans[scan_id] = {
@@ -272,6 +340,7 @@ def start_scan():
 
 def run_scan(scan_id, target, ports, modules):
     """Execute the security scan in background"""
+    conn = None
     try:
         results = {
             'scan_id': scan_id,
@@ -389,49 +458,92 @@ def run_scan(scan_id, target, ports, modules):
         # Store results
         scan_results[scan_id] = results
         
-        # Update database
+        # Update database with proper resource management
         if USE_POSTGRESQL:
-            scan = Scan.query.get(scan_id)
-            if scan:
-                scan.status = 'completed'
-                scan.completed_at = datetime.now()
-                db.session.commit()
-                
-                # Store results
-                scan_result = ScanResult(
-                    scan_id=scan_id,
-                    results=json.dumps(results)
-                )
-                db.session.add(scan_result)
-                db.session.commit()
+            try:
+                with app.app_context():
+                    scan = Scan.query.get(scan_id)
+                    if scan:
+                        scan.status = 'completed'
+                        scan.completed_at = datetime.now()
+                        db.session.commit()
+                        
+                        # Store results
+                        scan_result = ScanResult(
+                            scan_id=scan_id,
+                            results=json.dumps(results)
+                        )
+                        db.session.add(scan_result)
+                        db.session.commit()
+            except Exception as e:
+                print(f"[ERROR] PostgreSQL update failed: {str(e)}")
         else:
-            conn = sqlite3.connect('infogather.db')
-            cursor = conn.cursor()
-            cursor.execute(
-                'UPDATE scans SET status = ?, completed_at = ? WHERE id = ?',
-                ('completed', datetime.now(), scan_id)
-            )
-            cursor.execute(
-                'INSERT INTO scan_results (scan_id, results) VALUES (?, ?)',
-                (scan_id, json.dumps(results))
-            )
-            conn.commit()
-            cursor.close()
-            conn.close()
+            conn = None
+            try:
+                conn = sqlite3.connect('infogather.db')
+                cursor = conn.cursor()
+                cursor.execute(
+                    'UPDATE scans SET status = ?, completed_at = ? WHERE id = ?',
+                    ('completed', datetime.now(), scan_id)
+                )
+                cursor.execute(
+                    'INSERT INTO scan_results (scan_id, results) VALUES (?, ?)',
+                    (scan_id, json.dumps(results))
+                )
+                conn.commit()
+            except Exception as e:
+                print(f"[ERROR] SQLite update failed: {str(e)}")
+            finally:
+                if conn:
+                    conn.close()
+        
+        # Clean up memory periodically (keep last 100 scans)
+        if len(scan_results) > 100:
+            old_scans = sorted(scan_results.keys())[:-50]  # Keep 50 most recent
+            for old_scan_id in old_scans:
+                if old_scan_id in scan_results:
+                    del scan_results[old_scan_id]
+                if old_scan_id in active_scans:
+                    del active_scans[old_scan_id]
         
     except Exception as e:
-        # Handle scan errors
-        active_scans[scan_id]['status'] = 'failed'
-        active_scans[scan_id]['error'] = str(e)
+        # Handle scan errors with proper logging
+        print(f"[ERROR] Scan {scan_id} failed: {str(e)}")
         
-        conn = sqlite3.connect('infogather.db')
-        cursor = conn.cursor()
-        cursor.execute(
-            'UPDATE scans SET status = ? WHERE id = ?',
-            ('failed', scan_id)
-        )
-        conn.commit()
-        conn.close()
+        if scan_id in active_scans:
+            active_scans[scan_id]['status'] = 'failed'
+            active_scans[scan_id]['error'] = str(e)
+        
+        # Update database
+        conn = None
+        try:
+            if USE_POSTGRESQL:
+                with app.app_context():
+                    scan = Scan.query.get(scan_id)
+                    if scan:
+                        scan.status = 'failed'
+                        scan.error_message = str(e)
+                        scan.completed_at = datetime.now()
+                        db.session.commit()
+            else:
+                conn = sqlite3.connect('infogather.db')
+                cursor = conn.cursor()
+                cursor.execute(
+                    'UPDATE scans SET status = ?, error_message = ?, completed_at = ? WHERE id = ?',
+                    ('failed', str(e), datetime.now(), scan_id)
+                )
+                conn.commit()
+        except Exception as db_error:
+            print(f"[ERROR] Failed to update scan status: {str(db_error)}")
+        finally:
+            if conn:
+                conn.close()
+    
+    finally:
+        # Always clean up active scan tracking
+        if scan_id in active_scans:
+            # Keep for history but mark as no longer active
+            active_scans[scan_id]['active'] = False
 
 def generate_scan_summary(findings):
     """Generate summary statistics from scan findings"""
@@ -701,19 +813,35 @@ def delete_scan(scan_id):
     return jsonify({'success': True})
 
 if __name__ == '__main__':
-    # Create database tables
-    with app.app_context():
-        db.create_all()
-        
-        # Create default admin user if it doesn't exist
-        if not User.query.filter_by(username='admin').first():
-            admin_user = User(
-                username='admin',
-                password_hash=generate_password_hash('admin123')
-            )
-            db.session.add(admin_user)
-            db.session.commit()
-            print("Created default admin user: admin / admin123")
+    # Initialize database with proper error handling
+    if USE_POSTGRESQL:
+        try:
+            with app.app_context():
+                db.create_all()
+                
+                # Create default admin user if it doesn't exist
+                try:
+                    existing_admin = User.query.filter_by(username='admin').first()
+                    if not existing_admin:
+                        admin_user = User(
+                            username='admin',
+                            password_hash=generate_password_hash('admin123'),
+                            email='admin@localhost'
+                        )
+                        # Don't set role if column doesn't exist
+                        db.session.add(admin_user)
+                        db.session.commit()
+                        print("Created default admin user: admin / admin123")
+                except Exception as e:
+                    print(f"[WARNING] Admin user creation failed: {str(e)}")
+                    print("You may need to create the admin user manually")
+        except Exception as e:
+            print(f"[ERROR] Database initialization failed: {str(e)}")
+            print("Falling back to SQLite")
+            USE_POSTGRESQL = False
+            init_sqlite_db()
+    else:
+        init_sqlite_db()
     
     # Run the Flask app
     print("InfoGather Web Dashboard starting...")

@@ -5,7 +5,7 @@ channel = "stable-24_05"
 packages = ["cacert", "cargo", "libiconv", "libxcrypt", "nmap", "openssl", "pkg-config", "rustc"]
 
 [workflows]
-runButton = "Web Dashboard"
+runButton = "Fixed Web Dashboard"
 
 [[workflows.workflow]]
 name = "Project"
@@ -51,6 +51,15 @@ waitForPort = 5000
 
 [[workflows.workflow]]
 name = "Web Dashboard"
+author = 25868489
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python web_dashboard.py"
+
+[[workflows.workflow]]
+name = "Fixed Web Dashboard"
 author = 25868489
 mode = "sequential"
 

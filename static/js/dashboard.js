@@ -61,7 +61,7 @@ function loadDashboardStats() {
     fetch('/api/dashboard_stats')
         .then(response => {
             if (!response.ok) {
-                throw new Error('Failed to load dashboard data');
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
             return response.json();
         })
@@ -70,6 +70,7 @@ function loadDashboardStats() {
         })
         .catch(error => {
             console.error('Error loading dashboard stats:', error);
+            showNotification('Failed to load dashboard statistics', 'warning');
         });
 }
 
@@ -596,6 +597,26 @@ let resizeTimeout;
 window.addEventListener('resize', function() {
     clearTimeout(resizeTimeout);
     resizeTimeout = setTimeout(handleResize, 250);
+});
+
+// Global error handlers
+window.addEventListener('unhandledrejection', function(event) {
+    console.error('Unhandled promise rejection:', event.reason);
+    
+    // Prevent the default browser behavior
+    event.preventDefault();
+    
+    // Show user-friendly error message
+    const errorMessage = event.reason instanceof Error ? 
+        event.reason.message : 
+        'An unexpected error occurred';
+    
+    showNotification(`Error: ${errorMessage}`, 'danger');
+});
+
+window.addEventListener('error', function(event) {
+    console.error('JavaScript error:', event.error);
+    showNotification('A JavaScript error occurred. Please refresh the page.', 'danger');
 });
 
 // Initialize based on page
