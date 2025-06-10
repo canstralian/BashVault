@@ -1,0 +1,164 @@
+Great! Here’s what I’ll generate for you, top to bottom, as per your checklist:
+
+1. **Bash prototype script** for AES-256-GCM encryption/decryption using OpenSSL, with nonce/tag handling.
+2. **Argon2 key derivation script** using CLI, with extraction logic.
+3. **Clipboard detection & clearing Bash function** for cross-platform use.
+4. **SQLite migration script** for password expiry and status columns.
+5. **Audit logging Bash function** that appends JSON lines and sets secure permissions.
+6. **Backup & integrity check script** for encrypted vaults.
+7. **GitHub issue templates** for each milestone.
+8. **README changelog and upgrade notes draft** for new security features.
+
+Let’s start with the scripts and SQL migration files. I’ll follow up with issue templates and documentation drafts.
+
+---
+
+```bash name=encrypt_decrypt_aes256gcm.sh
+#!/usr/bin/env bash
+# AES-256-GCM encryption/decryption with nonce/tag handling
+
+set -e
+
+# Usage: ./encrypt_decrypt_aes256gcm.sh encrypt|decrypt KEY_FILE INPUT OUTPUT
+
+ACTION="$1"
+KEY_FILE="$2"
+INPUT="$3"
+OUTPUT="$4"
+
+if [[ -z "$ACTION" || -z "$KEY_FILE" || -z "$INPUT" || -z "$OUTPUT" ]]; then
+  echo "Usage: $0 encrypt|decrypt KEY_FILE INPUT OUTPUT"
+  exit 1
+fi
+
+KEY=$(xxd -p -c 256 "$KEY_FILE" | tr -d '\n' | cut -c1-64)
+
+if [[ "$ACTION" == "encrypt" ]]; then
+  NONCE=$(openssl rand -hex 12)
+  TAG=$(mktemp)
+  openssl enc -aes-256-gcm -nosalt -K "$KEY" -iv "$NONCE" -in "$INPUT" -out "$OUTPUT.enc" -tag "$TAG"
+  TAG_HEX=$(xxd -p "$TAG" | tr -d '\n')
+  rm "$TAG"
+  # Store as hex: nonce:tag:ciphertext
+  echo -n "$NONCE:$TAG_HEX:" > "$OUTPUT"
+  cat "$OUTPUT.enc" | xxd -p | tr -d '\n' >> "$OUTPUT"
+  rm "$OUTPUT.enc"
+  echo "Encrypted and stored as: <nonce>:<tag>:<ciphertext> (hex)"
+elif [[ "$ACTION" == "decrypt" ]]; then
+  IFS=':' read -r NONCE TAG_HEX CIPHERTEXT_HEX < "$INPUT"
+  CIPHERTEXT_BIN=$(mktemp)
+  echo -n "$CIPHERTEXT_HEX" | xxd -r -p > "$CIPHERTEXT_BIN"
+  TAG=$(mktemp)
+  echo -n "$TAG_HEX" | xxd -r -p > "$TAG"
+  openssl enc -d -aes-256-gcm -nosalt -K "$KEY" -iv "$NONCE" -in "$CIPHERTEXT_BIN" -out "$OUTPUT" -tag "$TAG"
+  rm "$CIPHERTEXT_BIN" "$TAG"
+  echo "Decrypted to $OUTPUT"
+else
+  echo "Unknown action: $ACTION"
+  exit 1
+fi
+```
+
+---
+
+```bash name=argon2_key_derivation.sh
+#!/usr/bin/env bash
+# Argon2 key derivation prototype
+
+PASSWORD="$1"
+SALT="$2"
+if [[ -z "$PASSWORD" || -z "$SALT" ]]; then
+  echo "Usage: $0 PASSWORD SALT"
+  exit 1
+fi
+
+# Generate Argon2 hash (raw output)
+KEY=$(echo -n "$PASSWORD" | argon2 "$SALT" -r -t 2 -m 15 -p 1 -l 32)
+echo "Derived key (hex): $KEY"
+```
+
+---
+
+```bash name=clipboard_util.sh
+#!/usr/bin/env bash
+# Cross-platform clipboard copy and auto-clear
+
+detect_clipboard_cmd() {
+  if command -v pbcopy &>/dev/null; then
+    echo "pbcopy"
+  elif command -v xclip &>/dev/null; then
+    echo "xclip -selection clipboard"
+  elif command -v wl-copy &>/dev/null; then
+    echo "wl-copy"
+  elif [[ "$OS" == "Windows_NT" ]]; then
+    echo "clip"
+  else
+    echo ""
+  fi
+}
+
+copy_to_clipboard() {
+  local data="$1"
+  local CLIP_CMD
+  CLIP_CMD=$(detect_clipboard_cmd)
+  if [[ -z "$CLIP_CMD" ]]; then
+    echo "No clipboard utility found."
+    return 1
+  fi
+  echo -n "$data" | eval "$CLIP_CMD"
+  # Clear clipboard after 10 seconds asynchronously
+  (sleep 10; echo -n "" | eval "$CLIP_CMD") &
+  echo "Copied to clipboard. Will auto-clear in 10 seconds."
+}
+```
+
+---
+
+```sql name=migration_password_expiry.sql
+ALTER TABLE passwords ADD COLUMN expiry_date TEXT DEFAULT NULL;
+ALTER TABLE passwords ADD COLUMN status TEXT DEFAULT 'active';
+-- Use ISO 8601 dates for expiry_date, e.g. '2025-06-10T00:00:00Z'
+```
+
+---
+
+```bash name=audit_log.sh
+#!/usr/bin/env bash
+# Append audit log entry as JSON lines, secure permissions
+
+AUDIT_FILE="audit.log"
+touch "$AUDIT_FILE"
+chmod 600 "$AUDIT_FILE"
+
+log_audit() {
+  local user="$1"
+  local action="$2"
+  local entry="$3"
+  local ts
+  ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+  echo "{\"timestamp\":\"$ts\",\"user\":\"$user\",\"action\":\"$action\",\"entry\":\"$entry\"}" >> "$AUDIT_FILE"
+}
+```
+
+---
+
+```bash name=backup_integrity_check.sh
+#!/usr/bin/env bash
+# Backup and integrity check for encrypted vault
+
+BACKUP="$1"
+if [[ -z "$BACKUP" ]]; then
+  echo "Usage: $0 VAULT_FILE"
+  exit 1
+fi
+
+sha256sum "$BACKUP" > "$BACKUP.sha256"
+echo "Backup and SHA256 checksum written."
+
+# To verify:
+# sha256sum -c "$BACKUP.sha256"
+```
+
+---
+
+I’ll now prepare the GitHub issue templates and documentation drafts. If you want these scripts in a specific directory structure, let me know!
