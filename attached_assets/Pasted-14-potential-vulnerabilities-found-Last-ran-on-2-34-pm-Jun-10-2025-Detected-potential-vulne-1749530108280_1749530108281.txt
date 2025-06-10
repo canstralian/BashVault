@@ -1,0 +1,67 @@
+14 potential vulnerabilities found.
+Last ran on
+ 
+2:34 pm, Jun 10, 2025
+Detected potential vulnerability in modules/vulnerability_scanner.py
+Certificate verification has been explicitly disabled. This permits insecure connections to insecure servers. Re-enable certification validation.
+modules/vulnerability_scanner.py
+            response = requests.head(url, timeout=self.timeout, verify=False, allow_redirects=False)
+Detected potential vulnerability in modules/vulnerability_scanner.py
+Certificate verification has been explicitly disabled. This permits insecure connections to insecure servers. Re-enable certification validation.
+modules/vulnerability_scanner.py
+                    response = requests.request(method, url, timeout=5, verify=False)
+Detected potential vulnerability in modules/vulnerability_scanner.py
+Certificate verification has been explicitly disabled. This permits insecure connections to insecure servers. Re-enable certification validation.
+modules/vulnerability_scanner.py
+                response = requests.get(url, timeout=5, verify=False)
+Detected potential vulnerability in modules/vulnerability_scanner.py
+Certificate verification has been explicitly disabled. This permits insecure connections to insecure servers. Re-enable certification validation.
+modules/vulnerability_scanner.py
+                response = requests.get(url, timeout=5, verify=False, allow_redirects=False)
+Detected potential vulnerability in modules/vulnerability_scanner.py
+Certificate verification has been explicitly disabled. This permits insecure connections to insecure servers. Re-enable certification validation.
+modules/vulnerability_scanner.py
+            response = requests.get(base_url, timeout=self.timeout, verify=False)
+Detected potential vulnerability in modules/vulnerability_scanner.py
+Certificate verification has been explicitly disabled. This permits insecure connections to insecure servers. Re-enable certification validation.
+modules/vulnerability_scanner.py
+                response = requests.request(method, base_url, timeout=5, verify=False)
+Detected potential vulnerability in modules/vulnerability_scanner.py
+Certificate verification has been explicitly disabled. This permits insecure connections to insecure servers. Re-enable certification validation.
+modules/vulnerability_scanner.py
+            response = requests.get(base_url, timeout=self.timeout, verify=False)
+Detected potential vulnerability in modules/vulnerability_scanner.py
+Certificate verification has been explicitly disabled. This permits insecure connections to insecure servers. Re-enable certification validation.
+modules/vulnerability_scanner.py
+            response = requests.get(test_url, timeout=5, verify=False)
+Detected potential vulnerability in static/js/dashboard.js
+User controlled data in methods like `innerHTML`, `outerHTML` or `document.write` is an anti-pattern that can lead to XSS vulnerabilities
+static/js/dashboard.js
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+Detected potential vulnerability in static/js/dashboard.js
+User controlled data in a `alertDiv.innerHTML` is an anti-pattern that can lead to XSS vulnerabilities
+static/js/dashboard.js
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+Detected potential vulnerability in static/js/dashboard.js
+User controlled data in methods like `innerHTML`, `outerHTML` or `document.write` is an anti-pattern that can lead to XSS vulnerabilities
+static/js/dashboard.js
+    container.innerHTML = html;
+Detected potential vulnerability in static/js/dashboard.js
+User controlled data in a `container.innerHTML` is an anti-pattern that can lead to XSS vulnerabilities
+static/js/dashboard.js
+    container.innerHTML = html;
+Detected potential vulnerability in static/js/dashboard.js
+User controlled data in methods like `innerHTML`, `outerHTML` or `document.write` is an anti-pattern that can lead to XSS vulnerabilities
+static/js/dashboard.js
+    container.innerHTML = html;
+Detected potential vulnerability in static/js/dashboard.js
+User controlled data in a `container.innerHTML` is an anti-pattern that can lead to XSS vulnerabilities
+static/js/dashboard.js
+    container.innerHTML = html;
+This security scan is powered by Semgrep Community Edition.
