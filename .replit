@@ -2,7 +2,7 @@ modules = ["python-3.11", "postgresql-16"]
 
 [nix]
 channel = "stable-24_05"
-packages = ["cacert", "cargo", "libiconv", "libxcrypt", "nmap", "openssl", "pkg-config", "rustc"]
+packages = ["cacert", "cargo", "libev", "libiconv", "libxcrypt", "nmap", "openssl", "pkg-config", "rustc"]
 
 [workflows]
 runButton = "InfoGather Production"
