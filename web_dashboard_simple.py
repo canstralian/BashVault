@@ -9,6 +9,7 @@ import json
 import os
 import threading
 import uuid
+import time
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
@@ -738,6 +739,69 @@ def monitoring_page():
     """Real-time monitoring dashboard page"""
     return render_template('monitoring.html')
 
+@app.route('/health')
+def health_check():
+    """Health check endpoint for monitoring"""
+    try:
+        # Check database connectivity
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT 1")
+            cursor.fetchone()
+            cursor.close()
+            
+        # Check threat monitor status
+        threat_status = threat_monitor.is_monitoring if hasattr(threat_monitor, 'is_monitoring') else True
+        
+        return jsonify({
+            'status': 'healthy',
+            'timestamp': datetime.now().isoformat(),
+            'database': 'connected',
+            'threat_monitor': 'active' if threat_status else 'inactive',
+            'active_scans': len(active_scans),
+            'version': '2.0.0'
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'unhealthy',
+            'timestamp': datetime.now().isoformat(),
+            'error': str(e),
+            'version': '2.0.0'
+        }), 500
+
+@app.route('/health/ready')
+def readiness_check():
+    """Readiness check for Kubernetes-style deployments"""
+    try:
+        # Check if all required services are ready
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM users")
+            cursor.fetchone()
+            cursor.close()
+            
+        return jsonify({
+            'status': 'ready',
+            'timestamp': datetime.now().isoformat(),
+            'database': 'ready',
+            'services': 'ready'
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'not_ready',
+            'timestamp': datetime.now().isoformat(),
+            'error': str(e)
+        }), 503
+
+@app.route('/health/live')
+def liveness_check():
+    """Liveness check for basic application health"""
+    return jsonify({
+        'status': 'alive',
+        'timestamp': datetime.now().isoformat(),
+        'uptime': time.time() - app.start_time if hasattr(app, 'start_time') else 0
+    })
+
 # Memory cleanup function for scan results
 def cleanup_old_scan_results():
     """Remove old scan results from memory to prevent memory leaks"""
@@ -752,15 +816,23 @@ def cleanup_old_scan_results():
             scan_results.clear()
             scan_results.update(new_results)
 
-if __name__ == '__main__':
+def main():
+    """Main application entry point"""
     try:
+        # Set start time for uptime calculation
+        app.start_time = time.time()
+        
         # Initialize database tables
         init_database()
         
         print("InfoGather Web Dashboard starting...")
         print("Access the dashboard at: http://localhost:5001")
         
-        app.run(host='0.0.0.0', port=5001, debug=False, threaded=True)
+        port = int(os.environ.get('PORT', 5000))
+        app.run(host='0.0.0.0', port=port, debug=False, threaded=True)
     except Exception as e:
         print(f"Failed to start application: {e}")
         cleanup()
+
+if __name__ == '__main__':
+    main()

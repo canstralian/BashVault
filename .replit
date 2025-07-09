@@ -65,7 +65,7 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "python web_dashboard_simple.py"
-waitForPort = 5001
+waitForPort = 5000
 
 [deployment]
 run = ["sh", "-c", "pip install python-nmap requests dnspython python-whois cryptography jinja2 && python pentester.py --help"]

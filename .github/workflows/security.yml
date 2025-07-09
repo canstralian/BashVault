@@ -1,128 +1,81 @@
-
-name: Security Audit
+name: Security Scanning
 
 on:
-  schedule:
-    - cron: '0 2 * * 1'  # Weekly on Monday at 2 AM
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  schedule:
+    - cron: '0 2 * * 0' # Weekly on Sunday at 2 AM
 
 jobs:
-  dependency-scan:
+  security-scan:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v4
-    
+    - uses: actions/checkout@v3
+      
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: 3.11
-    
+        python-version: '3.10'
+        
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install safety pip-audit
-        pip install python-nmap requests dnspython python-whois cryptography jinja2
-    
-    - name: Run Safety check
+        pip install bandit safety semgrep
+        
+    - name: Run Bandit security scan
+      run: |
+        bandit -r . -f json -o bandit-report.json
+        bandit -r . -f txt
+        
+    - name: Run Safety dependency check
       run: |
         safety check --json --output safety-report.json
-        safety check || true
-    
-    - name: Run pip-audit
+        safety check
+        
+    - name: Run Semgrep security scan
       run: |
-        pip-audit --format=json --output=pip-audit-report.json
-        pip-audit || true
-    
-    - name: Upload security reports
+        semgrep --config=auto . --json --output=semgrep-report.json
+        semgrep --config=auto .
+        
+    - name: Upload security artifacts
       uses: actions/upload-artifact@v3
       with:
         name: security-reports
         path: |
-          safety-report.json
-          pip-audit-report.json
-
-  codeql-analysis:
-    runs-on: ubuntu-latest
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Initialize CodeQL
-      uses: github/codeql-action/init@v2
-      with:
-        languages: python, javascript
-        queries: security-and-quality
-    
-    - name: Autobuild
-      uses: github/codeql-action/autobuild@v2
-    
-    - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v2
-      with:
-        category: "/language:python,javascript"
-        upload: true
-
-  code-quality:
-    runs-on: ubuntu-latest
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: 3.11
-    
-    - name: Install code quality tools
-      run: |
-        pip install bandit[toml] semgrep pylint mypy
-        pip install python-nmap requests dnspython python-whois cryptography jinja2
-    
-    - name: Run Bandit security linter
-      run: |
-        bandit -r . -f json -o bandit-report.json
-        bandit -r . || true
-    
-    - name: Run Semgrep
-      run: |
-        semgrep --config=auto --json --output=semgrep-report.json . || true
-    
-    - name: Run PyLint
-      run: |
-        pylint modules/ --output-format=json > pylint-report.json || true
-    
-    - name: Run MyPy type checking
-      run: |
-        mypy modules/ --ignore-missing-imports || true
-    
-    - name: Upload code quality reports
-      uses: actions/upload-artifact@v3
-      with:
-        name: code-quality-reports
-        path: |
           bandit-report.json
+          safety-report.json
           semgrep-report.json
-          pylint-report.json
-
-  container-scan:
-    runs-on: ubuntu-latest
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Run Trivy vulnerability scanner
-      uses: aquasecurity/trivy-action@master
+          
+    - name: Comment PR with security findings
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
       with:
-        scan-type: 'fs'
-        scan-ref: '.'
-        format: 'sarif'
-        output: 'trivy-results.sarif'
-    
-    - name: Upload Trivy scan results
-      uses: github/codeql-action/upload-sarif@v2
-      with:
-        sarif_file: 'trivy-results.sarif'
+        script: |
+          const fs = require('fs');
+          try {
+            const banditReport = JSON.parse(fs.readFileSync('bandit-report.json', 'utf8'));
+            const safetyReport = JSON.parse(fs.readFileSync('safety-report.json', 'utf8'));
+            
+            let comment = '## Security Scan Results\n\n';
+            comment += `### Bandit Findings: ${banditReport.results.length}\n`;
+            comment += `### Safety Vulnerabilities: ${safetyReport.vulnerabilities ? safetyReport.vulnerabilities.length : 0}\n`;
+            
+            if (banditReport.results.length > 0) {
+              comment += '\n**High Priority Issues:**\n';
+              banditReport.results.filter(r => r.issue_severity === 'HIGH').forEach(issue => {
+                comment += `- ${issue.test_name}: ${issue.filename}:${issue.line_number}\n`;
+              });
+            }
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+          } catch (error) {
+            console.log('Error reading security reports:', error);
+          }

@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: infogather-app
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=production
+      - FLASK_SECRET_KEY=${FLASK_SECRET_KEY:-your-secret-key-here}
+      - DATABASE_URL=postgresql://infogather:password@db:5432/infogather
+      - LOG_LEVEL=INFO
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./logs:/app/logs
+      - ./reports:/app/reports
+    networks:
+      - infogather-network
+
+  db:
+    image: postgres:13
+    container_name: infogather-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=infogather
+      - POSTGRES_USER=infogather
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - infogather-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: infogather-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - infogather-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: infogather-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./ssl:/etc/nginx/ssl
+    depends_on:
+      - app
+    networks:
+      - infogather-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  infogather-network:
+    driver: bridge

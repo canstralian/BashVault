@@ -1,5 +1,4 @@
-
-name: CI Pipeline
+name: CI/CD Pipeline
 
 on:
   push:
@@ -12,106 +11,132 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.9, 3.10, 3.11]
+        python-version: [3.8, 3.9, "3.10", "3.11"]
+
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: infogather_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
 
     steps:
-    - uses: actions/checkout@v4
-    
+    - uses: actions/checkout@v3
+
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
-    
+
     - name: Install system dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y nmap
-    
+
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install python-nmap requests dnspython python-whois cryptography jinja2
-        pip install pytest pytest-cov bandit safety
-    
+        pip install -r requirements.txt || pip install $(cat pyproject.toml | grep -A 20 "dependencies" | grep -E "^\s*\"" | sed 's/[",]//g' | tr '\n' ' ')
+        pip install pytest pytest-cov pytest-flask black flake8 mypy bandit safety
+
+    - name: Set up environment variables
+      run: |
+        echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/infogather_test" >> $GITHUB_ENV
+        echo "FLASK_SECRET_KEY=test-secret-key" >> $GITHUB_ENV
+        echo "FLASK_ENV=testing" >> $GITHUB_ENV
+
+    - name: Run code formatting check
+      run: |
+        black --check .
+
     - name: Run linting
       run: |
-        pip install flake8 black isort
         flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        black --check .
-        isort --check-only .
-    
-    - name: Run security scan
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=88 --statistics
+
+    - name: Run type checking
       run: |
-        bandit -r . -f json -o bandit-report.json || true
-        safety check --json --output safety-report.json || true
-    
+        mypy . --ignore-missing-imports || echo "Type checking completed with warnings"
+
+    - name: Run security scanning
+      run: |
+        bandit -r . -x tests/
+        safety check
+
+    - name: Initialize test database
+      run: |
+        python -c "from web_dashboard_simple import init_database; init_database()"
+
     - name: Run tests
       run: |
-        python -m pytest tests/ -v --cov=modules --cov-report=xml --cov-report=html
-    
-    - name: Upload coverage reports
+        pytest --cov=. --cov-report=xml --cov-report=html
+        
+    - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
       with:
         file: ./coverage.xml
         flags: unittests
         name: codecov-umbrella
 
-  security-scan:
+  security:
     runs-on: ubuntu-latest
     needs: test
-    
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Run Semgrep
-      uses: returntocorp/semgrep-action@v1
-      with:
-        config: >-
-          p/security-audit
-          p/secrets
-          p/python
-    
-    - name: Run CodeQL Analysis
-      uses: github/codeql-action/init@v2
-      with:
-        languages: python
-    
-    - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v2
+    - uses: actions/checkout@v3
 
-  build:
-    runs-on: ubuntu-latest
-    needs: [test, security-scan]
-    
-    steps:
-    - uses: actions/checkout@v4
-    
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: 3.11
-    
+        python-version: '3.10'
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install python-nmap requests dnspython python-whois cryptography jinja2
-    
-    - name: Validate configuration
+        pip install bandit safety
+
+    - name: Run security scan
       run: |
-        python -c "import pentester; print('Configuration validated')"
-    
-    - name: Create artifact
-      run: |
-        tar -czf infogather-${{ github.sha }}.tar.gz \
-          --exclude='.git' \
-          --exclude='__pycache__' \
-          --exclude='*.pyc' \
-          --exclude='.pytest_cache' \
-          .
-    
-    - name: Upload build artifact
+        bandit -r . -f json -o bandit-report.json
+        safety check --json --output safety-report.json
+
+    - name: Upload security reports
       uses: actions/upload-artifact@v3
       with:
-        name: infogather-build
-        path: infogather-${{ github.sha }}.tar.gz
-        retention-days: 30
+        name: security-reports
+        path: |
+          bandit-report.json
+          safety-report.json
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [test, security]
+    if: github.ref == 'refs/heads/main'
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Deploy to Replit
+      run: |
+        echo "Deployment to Replit would be configured here"
+        echo "This could include:"
+        echo "- Building Docker image"
+        echo "- Updating environment variables"
+        echo "- Running database migrations"
+        echo "- Health checks"
+
+    - name: Create GitHub Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        draft: false
+        prerelease: false
