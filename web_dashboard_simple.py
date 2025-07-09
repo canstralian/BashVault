@@ -565,12 +565,11 @@ def get_scan_results(scan_id):
 def results_page(scan_id):
     """Scan results page"""
     # Check if scan belongs to user
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('SELECT id FROM scans WHERE id = %s AND user_id = %s', (scan_id, session['user_id']))
-    scan = cursor.fetchone()
-    cursor.close()
-    conn.close()
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute('SELECT id FROM scans WHERE id = %s AND user_id = %s', (scan_id, session['user_id']))
+        scan = cursor.fetchone()
+        cursor.close()
     
     if not scan:
         return redirect(url_for('index'))
@@ -581,14 +580,13 @@ def results_page(scan_id):
 @require_auth
 def history_page():
     """Scan history page"""
-    conn = get_db_connection()
-    cursor = conn.cursor(cursor_factory=RealDictCursor)
-    cursor.execute('''
-        SELECT * FROM scans WHERE user_id = %s ORDER BY started_at DESC
-    ''', (session['user_id'],))
-    scans = cursor.fetchall()
-    cursor.close()
-    conn.close()
+    with get_db_connection() as conn:
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute('''
+            SELECT * FROM scans WHERE user_id = %s ORDER BY started_at DESC
+        ''', (session['user_id'],))
+        scans = cursor.fetchall()
+        cursor.close()
     
     # Convert to list of dictionaries for template
     scan_list = []
@@ -611,8 +609,8 @@ def dashboard_stats():
     """Get dashboard statistics"""
     user_id = session['user_id']
     
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
     
     # Get scan counts
     cursor.execute('SELECT COUNT(*) FROM scans WHERE user_id = %s', (user_id,))
@@ -640,53 +638,50 @@ def dashboard_stats():
             'started_at': row[3].isoformat() if row[3] else None
         })
     
-    cursor.close()
-    conn.close()
-    
-    # Generate activity data for chart (simplified)
-    activity_data = {
-        'labels': ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-        'values': [0, 1, 2, 1, 3, 1, 0]  # Sample data
-    }
-    
-    # Get monitoring stats
-    monitoring_stats = threat_monitor.get_monitoring_stats()
-    recent_alerts = threat_monitor.get_alerts(status='new', limit=5)
-    
-    return jsonify({
-        'total_scans': total_scans,
-        'completed_scans': completed_scans,
-        'running_scans': running_scans,
-        'critical_findings': monitoring_stats.get('new_alerts', 0),
-        'recent_scans': recent_scans,
-        'activity_data': activity_data,
-        'findings_summary': {
-            'critical': 0,
-            'high': 0,
-            'medium': 0,
-            'low': 0
-        },
-        'monitoring_stats': monitoring_stats,
-        'recent_alerts': recent_alerts
-    })
+        cursor.close()
+        
+        # Generate activity data for chart (simplified)
+        activity_data = {
+            'labels': ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+            'values': [0, 1, 2, 1, 3, 1, 0]  # Sample data
+        }
+        
+        # Get monitoring stats
+        monitoring_stats = threat_monitor.get_monitoring_stats()
+        recent_alerts = threat_monitor.get_alerts(status='new', limit=5)
+        
+        return jsonify({
+            'total_scans': total_scans,
+            'completed_scans': completed_scans,
+            'running_scans': running_scans,
+            'critical_findings': monitoring_stats.get('new_alerts', 0),
+            'recent_scans': recent_scans,
+            'activity_data': activity_data,
+            'findings_summary': {
+                'critical': 0,
+                'high': 0,
+                'medium': 0,
+                'low': 0
+            },
+            'monitoring_stats': monitoring_stats,
+            'recent_alerts': recent_alerts
+        })
 
 @app.route('/api/delete_scan/<scan_id>', methods=['DELETE'])
 @require_auth
 def delete_scan(scan_id):
     """Delete a scan and its results"""
     # Check ownership and delete
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('DELETE FROM scans WHERE id = %s AND user_id = %s', (scan_id, session['user_id']))
-    
-    if cursor.rowcount == 0:
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute('DELETE FROM scans WHERE id = %s AND user_id = %s', (scan_id, session['user_id']))
+        
+        if cursor.rowcount == 0:
+            cursor.close()
+            return jsonify({'error': 'Unauthorized or scan not found'}), 403
+        
+        conn.commit()
         cursor.close()
-        conn.close()
-        return jsonify({'error': 'Unauthorized or scan not found'}), 403
-    
-    conn.commit()
-    cursor.close()
-    conn.close()
     
     # Clean up memory
     if scan_id in active_scans:
