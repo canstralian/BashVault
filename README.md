@@ -1,234 +1,185 @@
-# InfoGather - Penetration Testing Information Gathering Tool
+# InfoGather v1.0.0 🛡️
 
-InfoGather is a comprehensive Python-based information gathering tool designed for authorized security assessments and penetration testing. This tool provides network discovery, vulnerability scanning, DNS enumeration, SSL analysis, and detailed reporting capabilities.
+[![CI/CD Pipeline](https://github.com/username/infogather/actions/workflows/ci.yml/badge.svg)](https://github.com/username/infogather/actions/workflows/ci.yml)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=infogather&metric=security_rating)](https://sonarcloud.io/dashboard?id=infogather)
+[![Coverage](https://codecov.io/gh/username/infogather/branch/main/graph/badge.svg)](https://codecov.io/gh/username/infogather)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## ⚠️ **DISCLAIMER**
-
-**FOR AUTHORIZED SECURITY TESTING ONLY**
-
-This tool is intended for legitimate security testing and assessment purposes only. Ensure you have explicit written permission before using this tool on any network or system you do not own. Unauthorized use may violate laws and regulations.
-
-## 🚀 Features
-
-### Core Capabilities
-- **Network Discovery & Host Enumeration**: Identify live hosts and open ports
-- **Port Scanning**: Comprehensive TCP/UDP port scanning with service detection
-- **Service Detection**: Version identification and banner grabbing
-- **DNS Enumeration**: Subdomain discovery, zone transfer testing, DNS record analysis
-- **WHOIS Information Gathering**: Domain and IP registration details
-- **SSL/TLS Certificate Analysis**: Certificate validation, vulnerability assessment
-- **Vulnerability Scanning**: Basic security vulnerability detection
-- **Comprehensive Reporting**: Multiple output formats (text, JSON, # InfoGather - Penetration Testing Tool v2.0
-
-<div align="center">
-
-![InfoGather Logo](https://img.shields.io/badge/InfoGather-v2.0-blue.svg)
-![Python](https://img.shields.io/badge/python-3.7+-blue.svg)
-![License](https://img.shields.io/badge/license-MIT-green.svg)
-![Tests](https://img.shields.io/badge/tests-passing-brightgreen.svg)
-![Coverage](https://img.shields.io/badge/coverage-80%25-yellow.svg)
-
-**A comprehensive Python-based penetration testing and information gathering tool for authorized security assessments**
-
-</div>
-
-## ⚠️ Legal Disclaimer
-
-**This tool is intended for authorized security testing and educational purposes only.** Users must have explicit written permission before using this tool on any network or system they do not own. Unauthorized use may violate laws and regulations. The developers disclaim any liability for misuse of this software.
+InfoGather is a comprehensive, production-ready penetration testing and information gathering tool designed for authorized security assessments. It combines powerful reconnaissance capabilities with a modern web interface for efficient security testing workflows.
 
 ## 🚀 Features
 
 ### Core Capabilities
-- **Network Scanning**: Host discovery and comprehensive port scanning
-- **DNS Enumeration**: Subdomain discovery and DNS record analysis
-- **SSL Analysis**: Certificate validation and TLS configuration assessment
-- **Vulnerability Scanning**: Security vulnerability detection and reporting
-- **WHOIS Lookup**: Domain registration and ownership information
-
-### Advanced Reconnaissance
-- **Social Engineering Intelligence**: Employee enumeration and email pattern discovery
-- **Advanced DNS**: DNS over HTTPS bypass and certificate transparency mining
-- **Cloud Discovery**: AWS S3, Azure Blob, and Google Cloud Storage enumeration
-- **DNS Tunneling Detection**: Advanced analysis for detecting DNS-based communication channels
+- **Network Scanning** - Port discovery and service enumeration
+- **DNS Enumeration** - Subdomain discovery and DNS intelligence
+- **SSL/TLS Analysis** - Certificate validation and security assessment
+- **Vulnerability Scanning** - Automated security vulnerability detection
+- **Social Engineering Intelligence** - OSINT data gathering
+- **Advanced DNS Analysis** - DNS tunneling and covert channel detection
+- **Cloud Asset Discovery** - AWS, Azure, GCP resource enumeration
 
 ### Web Dashboard
-- **Modern Interface**: Responsive Flask-based web application
-- **Real-time Scanning**: Asynchronous scan execution with progress tracking
-- **Multi-user Support**: Authentication, session management, and user roles
-- **Scan History**: Persistent result storage and comprehensive reporting
-- **Threat Monitoring**: Real-time vulnerability tracking and alerts
+- **Real-time Monitoring** - Live scan progress and threat monitoring
+- **Historical Analysis** - Comprehensive scan history and trends
+- **Export Capabilities** - JSON, HTML, and PDF report generation
+- **User Management** - Multi-user support with authentication
+- **RESTful API** - Programmatic access to all functionality
 
-### Technical Features
-- **Parallel Processing**: Multi-threaded scanning for improved performance
-- **Configurable Timing**: Scan intensity templates for stealth or speed
-- **Modular Architecture**: Easy to extend with additional modules
-- **Progress Indicators**: Real-time feedback for long-running operations
-- **Error Handling**: Robust error handling for network timeouts and failures
-- **Security Hardening**: Input validation, rate limiting, and secure session management
+### Security Features
+- **Authentication & Authorization** - Secure user management
+- **Input Validation** - Comprehensive sanitization and validation
+- **Rate Limiting** - DDoS protection and abuse prevention
+- **Audit Logging** - Complete security event tracking
+- **HTTPS Support** - SSL/TLS encryption for all communications
 
 ## 📋 Requirements
 
-### System Requirements
-- **Python**: 3.7 or higher
-- **Database**: PostgreSQL (recommended) or SQLite (development)
-- **Network Tools**: `nmap` binary installed on the system
-- **Permissions**: Appropriate permissions for network scanning
-
-### Python Dependencies
-- **Core Framework**: Flask, SQLAlchemy, Werkzeug
-- **Network Operations**: python-nmap, requests, dnspython, python-whois
-- **Security**: cryptography, secure session management
-- **Database**: psycopg2-binary (PostgreSQL), SQLite (fallback)
-- **Templates**: Jinja2 for HTML report generation
+- Python 3.8+
+- PostgreSQL 12+
+- Modern web browser (Chrome, Firefox, Safari, Edge)
+- Minimum 2GB RAM, 1GB storage
 
 ## 🛠️ Installation
 
 ### Quick Start (Replit)
-1. **Clone the repository:**
-```bash
-git clone https://github.com/your-username/infogather.git
-cd infogather
-```
 
-2. **Set up environment variables:**
-```bash
-cp .env.example .env
-# Edit .env with your configuration
-```
+[![Run on Replit](https://replit.com/badge/github/username/infogather)](https://replit.com/new/github/username/infogather)
 
-3. **Initialize database:**
-```bash
-python -c "from web_dashboard_simple import init_database; init_database()"
-```
+1. Click the "Run on Replit" button above
+2. Configure environment variables (see Configuration section)
+3. Run the application using the provided workflow
 
-4. **Start the web dashboard:**
-```bash
-python web_dashboard_simple.py
-```
+### Manual Installation
 
-### Production Setup
-1. **Install system dependencies:**
-```bash
-sudo apt-get update
-sudo apt-get install nmap postgresql postgresql-contrib
-```
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/username/infogather.git
+   cd infogather
+   ```
 
-2. **Configure PostgreSQL:**
-```bash
-sudo -u postgres createdb infogather
-sudo -u postgres createuser infogather_user
-```
+2. **Install dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-3. **Set up Python environment:**
-```bash
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-pip install -r requirements.txt
-```
+3. **Configure environment**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your configuration
+   ```
 
-4. **Configure environment variables:**
-```bash
-export DATABASE_URL="postgresql://user:password@localhost/infogather"
-export FLASK_SECRET_KEY="your-secret-key-here"
-```
+4. **Initialize database**
+   ```bash
+   python -c "from app import create_app; from web_dashboard_simple import init_database; init_database()"
+   ```
 
-## 🎯 Usage
+5. **Run the application**
+   ```bash
+   python app.py
+   ```
 
-### Command Line Interface
-```bash
-# Basic network scan
-python pentester.py -t 192.168.1.1 --network-scan
-
-# Comprehensive scan with all modules
-python pentester.py -t example.com --all-modules -o report
-
-# Advanced reconnaissance
-python pentester.py -t target.com --advanced-recon --format html
-
-# Specific module combinations
-python pentester.py -t 192.168.1.0/24 --dns-enum --ssl-analysis --vuln-scan
-```
-
-### Web Dashboard
-1. **Access the dashboard**: `http://localhost:5000`
-2. **Login/Register**: Create account or use existing credentials
-3. **Configure Scan**: Select target, modules, and parameters
-4. **Monitor Progress**: Real-time scan execution tracking
-5. **View Results**: Comprehensive reporting and analysis
-6. **Export Reports**: Multiple formats (JSON, HTML, PDF)
-
-### API Usage
-```python
-from modules.network_scanner import NetworkScanner
-from modules.dns_enum import DNSEnumerator
-
-# Initialize modules
-scanner = NetworkScanner(verbose=True)
-dns_enum = DNSEnumerator(verbose=True)
-
-# Perform scans
-network_results = scanner.scan_network("192.168.1.0/24")
-dns_results = dns_enum.enumerate_dns("example.com")
-```
-
-## 📊 Module Documentation
-
-### Network Scanner
-- **Purpose**: Host discovery and port scanning
-- **Methods**: TCP SYN scan, UDP scan, service detection
-- **Options**: Timing templates, port ranges, custom scripts
-
-### DNS Enumerator
-- **Purpose**: DNS reconnaissance and subdomain discovery
-- **Methods**: Zone transfer, brute force, certificate transparency
-- **Features**: DNS over HTTPS bypass, historical analysis
-
-### SSL Analyzer
-- **Purpose**: Certificate and TLS configuration assessment
-- **Analysis**: Certificate chain validation, cipher suites, vulnerabilities
-- **Output**: Security recommendations and compliance checks
-
-### Vulnerability Scanner
-- **Purpose**: Security vulnerability detection
-- **Coverage**: Common vulnerabilities, misconfigurations
-- **Integration**: CVE database, security advisories
-
-### Advanced Modules
-- **Social Engineer**: Employee enumeration, email patterns
-- **Cloud Discovery**: Cloud storage enumeration and analysis
-- **Threat Monitor**: Real-time vulnerability tracking
-
-## 🔧 Configuration
+## ⚙️ Configuration
 
 ### Environment Variables
-```bash
-# Core Configuration
+
+Copy `.env.example` to `.env` and configure:
+
+```env
+# Basic Configuration
 FLASK_ENV=production
-FLASK_SECRET_KEY=your-secret-key-here
-DATABASE_URL=postgresql://user:password@localhost/infogather
+SECRET_KEY=your-secret-key-here
+DATABASE_URL=postgresql://user:pass@localhost/infogather
+
+# Admin Account
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=secure-password
 
 # Security Settings
-SESSION_TIMEOUT=3600
-MAX_SCAN_DURATION=1800
-RATE_LIMIT_REQUESTS=100
-
-# External Services
-SHODAN_API_KEY=your-shodan-api-key
-VIRUSTOTAL_API_KEY=your-virustotal-api-key
+MAX_CONCURRENT_SCANS=5
+SCAN_TIMEOUT=3600
+LOG_LEVEL=INFO
 ```
 
-### Database Configuration
+### Database Setup
+
+For PostgreSQL:
+```sql
+CREATE DATABASE infogather;
+CREATE USER infogather WITH PASSWORD 'secure_password';
+GRANT ALL PRIVILEGES ON DATABASE infogather TO infogather;
+```
+
+## 🚀 Usage
+
+### Web Interface
+
+1. **Access the dashboard**: `http://your-domain:5000`
+2. **Login** with admin credentials
+3. **Configure scan** - Select target and modules
+4. **Monitor progress** - Real-time scan updates
+5. **Review results** - Comprehensive findings analysis
+6. **Export reports** - Multiple format options
+
+### Command Line Interface
+
+```bash
+# Basic scan
+python pentester.py -t example.com --all-modules
+
+# Advanced scan with custom options
+python pentester.py -t 192.168.1.0/24 -p 1-1000 --timing T4 --threads 100
+
+# Specific modules
+python pentester.py -t example.com --network-scan --dns-enum --ssl-analysis
+```
+
+### API Usage
+
 ```python
-# PostgreSQL (Recommended)
-DATABASE_URL = "postgresql://user:password@localhost/infogather"
+import requests
 
-# SQLite (Development)
-DATABASE_URL = "sqlite:///infogather.db"
+# Start a scan
+response = requests.post('https://your-domain/api/start_scan', 
+                        json={
+                            'target': 'example.com',
+                            'modules': ['network_scan', 'dns_enum'],
+                            'ports': '1-1000'
+                        })
+
+scan_id = response.json()['scan_id']
+
+# Check status
+status = requests.get(f'https://your-domain/api/scan_status/{scan_id}')
+
+# Get results
+results = requests.get(f'https://your-domain/api/scan_results/{scan_id}')
 ```
+
+## 🔒 Security Considerations
+
+### ⚠️ **Legal Disclaimer**
+InfoGather is intended for **authorized security testing only**. Users must ensure they have explicit written permission before scanning any networks or systems they do not own. Unauthorized use may violate laws and regulations.
+
+### Security Best Practices
+
+1. **Use strong authentication** - Enable strong passwords and consider 2FA
+2. **Restrict network access** - Use firewalls and VPN access
+3. **Regular updates** - Keep dependencies and system updated
+4. **Monitor logs** - Review audit logs regularly
+5. **Backup data** - Implement regular backup procedures
+
+### Security Features
+
+- **Input sanitization** - Protection against injection attacks
+- **Rate limiting** - Prevents abuse and DDoS attacks
+- **Session management** - Secure session handling with timeouts
+- **Audit logging** - Comprehensive security event tracking
+- **HTTPS encryption** - All communications encrypted
 
 ## 🧪 Testing
 
 ### Running Tests
+
 ```bash
 # Run all tests
 pytest
@@ -237,133 +188,123 @@ pytest
 pytest --cov=. --cov-report=html
 
 # Run specific test categories
-pytest tests/test_modules.py
-pytest tests/test_web_dashboard.py
+pytest -m "not slow"  # Skip slow tests
+pytest -m "security"  # Run security tests only
 ```
 
-### Code Quality
-```bash
-# Format code
-black .
+### Test Categories
 
-# Check linting
-flake8 .
+- **Unit Tests** - Individual component testing
+- **Integration Tests** - End-to-end functionality
+- **Security Tests** - Vulnerability and penetration testing
+- **Performance Tests** - Load and stress testing
 
-# Type checking
-mypy .
+## 📊 Monitoring
 
-# Security scanning
-bandit -r .
-```
+### Health Checks
 
-## 📈 Performance
+- **Basic Health**: `/health` - Application status
+- **Readiness**: `/health/ready` - Database connectivity
+- **Liveness**: `/health/live` - Process status
 
-### Benchmarks
-- **Network Scan**: 1000 hosts in ~2 minutes
-- **DNS Enumeration**: 500 subdomains in ~30 seconds
-- **SSL Analysis**: 100 certificates in ~1 minute
-- **Vulnerability Scan**: Comprehensive scan in ~5 minutes
+### Metrics
 
-### Optimization
-- **Parallel Processing**: Configurable thread pools
-- **Rate Limiting**: Prevents network congestion
-- **Caching**: Results caching for repeated scans
-- **Resource Management**: Memory and CPU optimization
+- **Scan Statistics** - Success rates, performance metrics
+- **User Activity** - Login attempts, scan frequency
+- **System Resources** - CPU, memory, disk usage
+- **Security Events** - Failed logins, blocked IPs
 
-## 🔒 Security
+## 🔄 CI/CD Pipeline
 
-### Security Features
-- **Input Validation**: Comprehensive sanitization
-- **Authentication**: Secure user authentication
-- **Session Management**: Secure session handling
-- **Rate Limiting**: DDoS protection
-- **Audit Logging**: Security event tracking
+### GitHub Actions
 
-### Security Considerations
-- **Authorized Use**: Only scan systems you own or have permission to test
-- **Network Impact**: Configure appropriate timing to avoid disruption
-- **Data Protection**: Secure handling of scan results
-- **Compliance**: Follow applicable laws and regulations
+The project includes comprehensive CI/CD:
 
-## 🚀 Deployment
+- **Code Quality** - Linting, formatting, type checking
+- **Security Scanning** - Vulnerability detection, dependency audit
+- **Testing** - Unit, integration, security tests
+- **Deployment** - Automated Replit deployment
+- **Monitoring** - Post-deployment health checks
 
-### Replit Deployment
-1. **Configure environment variables** in Replit Secrets
-2. **Set up PostgreSQL database** using Replit Database
-3. **Deploy using Replit hosting** with auto-scaling
+### Deployment Process
 
-### Production Deployment
-1. **Use production WSGI server** (Gunicorn, uWSGI)
-2. **Configure reverse proxy** (Nginx, Apache)
-3. **Set up SSL/TLS certificates** for HTTPS
-4. **Implement monitoring** and alerting
-5. **Regular security updates** and patches
+1. **Development** - Feature branches with PR reviews
+2. **Testing** - Automated test suite execution
+3. **Security** - Vulnerability scanning and auditing
+4. **Staging** - Deploy to staging environment
+5. **Production** - Automated production deployment
+6. **Monitoring** - Post-deployment verification
 
-### Docker Deployment
-```dockerfile
-FROM python:3.9-slim
-COPY . /app
-WORKDIR /app
-RUN pip install -r requirements.txt
-CMD ["python", "web_dashboard_simple.py"]
-```
+## 📚 API Documentation
+
+### Authentication
+
+All API endpoints require authentication via session cookies or API keys.
+
+### Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/start_scan` | Start a new scan |
+| GET | `/api/scan_status/{id}` | Get scan status |
+| GET | `/api/scan_results/{id}` | Get scan results |
+| GET | `/api/dashboard_stats` | Get dashboard statistics |
+| DELETE | `/api/delete_scan/{id}` | Delete a scan |
+
+### Request/Response Examples
+
+See [API Documentation](docs/api.md) for detailed examples.
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
 
 ### Development Setup
+
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Add tests and documentation
-5. Submit a pull request
+4. Add tests for new functionality
+5. Ensure all tests pass
+6. Submit a pull request
 
-### Code Style
-- Follow PEP 8 guidelines
-- Use type hints
-- Add comprehensive docstrings
-- Maintain test coverage >80%
+### Code Standards
 
-## 📝 License
+- **Python**: PEP 8 compliance, type hints
+- **JavaScript**: ES6+, consistent formatting
+- **Testing**: >80% code coverage required
+- **Security**: All changes security reviewed
+
+## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🆘 Support
 
-- **Documentation**: Comprehensive guides and API documentation
-- **Issues**: Report bugs and request features on GitHub
-- **Security**: Report vulnerabilities to security@infogather.com
-- **Community**: Join our discussions and community support
+### Documentation
 
-## 📚 Resources
+- [Installation Guide](docs/installation.md)
+- [Configuration Reference](docs/configuration.md)
+- [API Documentation](docs/api.md)
+- [Troubleshooting](docs/troubleshooting.md)
 
-- [Official Documentation](https://infogather.readthedocs.io)
-- [API Reference](https://infogather.readthedocs.io/api)
-- [Video Tutorials](https://youtube.com/infogather)
-- [Community Forum](https://forum.infogather.com)
+### Community
 
-## 🎯 Roadmap
+- [GitHub Issues](https://github.com/username/infogather/issues)
+- [Security Reports](security@infogather.com)
+- [Feature Requests](https://github.com/username/infogather/discussions)
 
-### Version 2.1 (Q2 2025)
-- [ ] API rate limiting and authentication
-- [ ] Advanced report customization
-- [ ] Integration with SIEM systems
-- [ ] Mobile-responsive improvements
+## 🔄 Changelog
 
-### Version 3.0 (Q4 2025)
-- [ ] Machine learning-based vulnerability detection
-- [ ] Cloud-native deployment options
-- [ ] Advanced threat intelligence integration
-- [ ] Multi-tenant architecture
+See [CHANGELOG.md](CHANGELOG.md) for version history and updates.
+
+## 🏆 Acknowledgments
+
+- [OWASP](https://owasp.org/) for security best practices
+- [Nmap](https://nmap.org/) for network scanning capabilities
+- [DNSRecon](https://github.com/darkoperator/dnsrecon) for DNS enumeration
+- Contributors and security researchers
 
 ---
 
-<div align="center">
-
-**Made with ❤️ for the security community**
-
-[Website](https://infogather.com) | [Documentation](https://docs.infogather.com) | [Community](https://community.infogather.com)
-
-</div>>
-cd infogather
+**Remember**: Always ensure you have proper authorization before using InfoGather on any network or system. Use responsibly and ethically.

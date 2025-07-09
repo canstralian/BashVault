@@ -491,12 +491,11 @@ def generate_scan_summary(findings):
 def get_scan_status(scan_id):
     """Get current scan status"""
     # Check if scan belongs to user
-    conn = get_db_connection()
-    cursor = conn.cursor(cursor_factory=RealDictCursor)
-    cursor.execute('SELECT * FROM scans WHERE id = %s AND user_id = %s', (scan_id, session['user_id']))
-    scan = cursor.fetchone()
-    cursor.close()
-    conn.close()
+    with get_db_connection() as conn:
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute('SELECT * FROM scans WHERE id = %s AND user_id = %s', (scan_id, session['user_id']))
+        scan = cursor.fetchone()
+        cursor.close()
     
     if not scan:
         return jsonify({'error': 'Scan not found'}), 404
@@ -520,27 +519,24 @@ def get_scan_status(scan_id):
 def get_scan_results(scan_id):
     """Get scan results"""
     # Check if scan belongs to user
-    conn = get_db_connection()
-    cursor = conn.cursor(cursor_factory=RealDictCursor)
-    cursor.execute('SELECT * FROM scans WHERE id = %s AND user_id = %s', (scan_id, session['user_id']))
-    scan = cursor.fetchone()
-    
-    if not scan:
+    with get_db_connection() as conn:
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute('SELECT * FROM scans WHERE id = %s AND user_id = %s', (scan_id, session['user_id']))
+        scan = cursor.fetchone()
+        
+        if not scan:
+            cursor.close()
+            return jsonify({'error': 'Scan not found'}), 404
+        
+        # Return from memory if available
+        if scan_id in scan_results:
+            cursor.close()
+            return jsonify(scan_results[scan_id])
+        
+        # Reconstruct from database
+        cursor.execute('SELECT * FROM scan_results WHERE scan_id = %s', (scan_id,))
+        result_records = cursor.fetchall()
         cursor.close()
-        conn.close()
-        return jsonify({'error': 'Scan not found'}), 404
-    
-    # Return from memory if available
-    if scan_id in scan_results:
-        cursor.close()
-        conn.close()
-        return jsonify(scan_results[scan_id])
-    
-    # Reconstruct from database
-    cursor.execute('SELECT * FROM scan_results WHERE scan_id = %s', (scan_id,))
-    result_records = cursor.fetchall()
-    cursor.close()
-    conn.close()
     
     results = {}
     for record in result_records:
@@ -611,33 +607,33 @@ def dashboard_stats():
     
     with get_db_connection() as conn:
         cursor = conn.cursor()
-    
-    # Get scan counts
-    cursor.execute('SELECT COUNT(*) FROM scans WHERE user_id = %s', (user_id,))
-    total_scans = cursor.fetchone()[0]
-    
-    cursor.execute('SELECT COUNT(*) FROM scans WHERE user_id = %s AND status = %s', (user_id, 'completed'))
-    completed_scans = cursor.fetchone()[0]
-    
-    cursor.execute('SELECT COUNT(*) FROM scans WHERE user_id = %s AND status = %s', (user_id, 'running'))
-    running_scans = cursor.fetchone()[0]
-    
-    # Get recent scans
-    cursor.execute('''
-        SELECT id, target, status, started_at FROM scans 
-        WHERE user_id = %s ORDER BY started_at DESC LIMIT 5
-    ''', (user_id,))
-    recent_scans_rows = cursor.fetchall()
-    
-    recent_scans = []
-    for row in recent_scans_rows:
-        recent_scans.append({
-            'id': row[0],
-            'target': row[1],
-            'status': row[2],
-            'started_at': row[3].isoformat() if row[3] else None
-        })
-    
+        
+        # Get scan counts
+        cursor.execute('SELECT COUNT(*) FROM scans WHERE user_id = %s', (user_id,))
+        total_scans = cursor.fetchone()[0]
+        
+        cursor.execute('SELECT COUNT(*) FROM scans WHERE user_id = %s AND status = %s', (user_id, 'completed'))
+        completed_scans = cursor.fetchone()[0]
+        
+        cursor.execute('SELECT COUNT(*) FROM scans WHERE user_id = %s AND status = %s', (user_id, 'running'))
+        running_scans = cursor.fetchone()[0]
+        
+        # Get recent scans
+        cursor.execute('''
+            SELECT id, target, status, started_at FROM scans 
+            WHERE user_id = %s ORDER BY started_at DESC LIMIT 5
+        ''', (user_id,))
+        recent_scans_rows = cursor.fetchall()
+        
+        recent_scans = []
+        for row in recent_scans_rows:
+            recent_scans.append({
+                'id': row[0],
+                'target': row[1],
+                'status': row[2],
+                'started_at': row[3].isoformat() if row[3] else None
+            })
+        
         cursor.close()
         
         # Generate activity data for chart (simplified)
