@@ -16,18 +16,18 @@ argon2-cffi==23.1.0
 
 # Network Tools
 python-nmap==0.7.1
-requests==2.31.0
+requests==2.32.4
 dnspython==2.4.2
 python-whois==0.8.0
 
 # Utilities
 python-dateutil==2.8.2
 python-dotenv==1.0.0
-jinja2==3.1.2
+jinja2==3.1.6
 click==8.1.7
 
 # Production Server
-gunicorn==21.2.0
+gunicorn==23.0.0
 gevent==23.9.1
 
 # Monitoring
@@ -38,7 +38,7 @@ prometheus-client==0.19.0
 pytest==7.4.3
 pytest-cov==4.1.0
 pytest-flask==1.3.0
-black==23.11.0
+black==24.3.0
 flake8==6.1.0
 mypy==1.7.1
 bandit==1.7.5
