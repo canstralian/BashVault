@@ -78,6 +78,8 @@ jobs:
         done
     
     - name: Deploy to Replit
+      id: deploy
+      continue-on-error: true
       run: |
         echo "🚀 Deploying InfoGather to Replit..."
         echo "Environment: ${{ github.event.inputs.environment || 'staging' }}"
@@ -92,9 +94,24 @@ jobs:
         # In a real scenario, you would use Replit's API or CLI here
         # Example: replit deploy --environment=${{ github.event.inputs.environment }}
     
+    - name: Handle deployment failure
+      if: steps.deploy.outcome == 'failure'
+      run: |
+        echo "⚠️ Deployment failed, but continuing workflow for reporting"
+        echo "DEPLOYMENT_STATUS=failed" >> $GITHUB_ENV
+        echo "Check logs and retry deployment manually if needed"
+    
     - name: Post-deployment health check
+      id: health_check
+      continue-on-error: true
       run: |
         echo "🔍 Running post-deployment health checks..."
+        
+        # Skip if deployment failed
+        if [ "${{ steps.deploy.outcome }}" == "failure" ]; then
+          echo "⚠️ Skipping health checks due to deployment failure"
+          exit 0
+        fi
         
         # Simulate health checks
         python -c "
@@ -113,14 +130,31 @@ jobs:
         "
     
     - name: Create deployment summary
+      if: always()
       run: |
+        # Determine deployment status
+        DEPLOY_STATUS="${{ steps.deploy.outcome }}"
+        HEALTH_STATUS="${{ steps.health_check.outcome }}"
+        
+        if [ "$DEPLOY_STATUS" == "success" ] && [ "$HEALTH_STATUS" == "success" ]; then
+          OVERALL_STATUS="✅ Success"
+        elif [ "$DEPLOY_STATUS" == "failure" ]; then
+          OVERALL_STATUS="❌ Deployment Failed"
+        else
+          OVERALL_STATUS="⚠️ Partial Success"
+        fi
+        
         cat << EOF > deployment-summary.md
         # Deployment Summary
+        
+        ## Overall Status: $OVERALL_STATUS
         
         ## Environment
         - **Target**: ${{ github.event.inputs.environment || 'staging' }}
         - **Commit**: ${{ github.sha }}
         - **Date**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+        - **Deployment Status**: $DEPLOY_STATUS
+        - **Health Check Status**: $HEALTH_STATUS
         
         ## Components Deployed
         - ✅ InfoGather Core Engine
@@ -130,15 +164,18 @@ jobs:
         - ✅ Report Generator
         
         ## Health Status
-        - ✅ Application: Running
-        - ✅ Database: Connected  
-        - ✅ API: Responsive
-        - ✅ Security: Active
+        - Application: $([ "$HEALTH_STATUS" == "success" ] && echo "✅ Running" || echo "⚠️ Unknown")
+        - Database: $([ "$HEALTH_STATUS" == "success" ] && echo "✅ Connected" || echo "⚠️ Unknown")
+        - API: $([ "$HEALTH_STATUS" == "success" ] && echo "✅ Responsive" || echo "⚠️ Unknown")
+        - Security: $([ "$HEALTH_STATUS" == "success" ] && echo "✅ Active" || echo "⚠️ Unknown")
         
         ## Access Information
         - Dashboard URL: Available after deployment
-        - Default Login: admin / admin123
+        - Default Login: admin / [secure password]
         - Documentation: /docs endpoint
+        
+        ## Notes
+        $([ "$DEPLOY_STATUS" == "failure" ] && echo "- ⚠️ Deployment encountered errors. Manual intervention may be required." || echo "- ✅ Deployment completed without errors.")
         EOF
         
         echo "📋 Deployment Summary:"

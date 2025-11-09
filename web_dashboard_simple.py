@@ -30,6 +30,7 @@ from modules.advanced_dns import AdvancedDNS
 from modules.cloud_discovery import CloudDiscovery
 from modules.threat_monitor import ThreatMonitor
 from utils.validation import validate_target, validate_ports
+from schemas import ScanRequestSchema, LoginSchema, validate_request_data
 
 app = Flask(__name__)
 # Generate secure secret key if not provided
@@ -188,11 +189,20 @@ def index():
 def login():
     """User login"""
     if request.method == 'POST':
-        username = request.form.get('username', '').strip()
-        password = request.form.get('password', '')
+        # Get form data
+        form_data = {
+            'username': request.form.get('username', '').strip(),
+            'password': request.form.get('password', '')
+        }
         
-        if not username or not password:
-            return render_template('login.html', error='Username and password are required')
+        # Validate input using Marshmallow schema
+        validated_data, errors = validate_request_data(LoginSchema, form_data)
+        if errors:
+            error_msg = '; '.join([f"{k}: {', '.join(v)}" for k, v in errors.items()])
+            return render_template('login.html', error=error_msg)
+        
+        username = validated_data['username']
+        password = validated_data['password']
         
         try:
             with get_db_connection() as conn:
@@ -242,24 +252,15 @@ def start_scan():
         data = request.get_json()
         if not data:
             return jsonify({'error': 'No data provided'}), 400
-            
-        target = data.get('target', '').strip()
-        ports = data.get('ports', '1-1000')
-        modules = data.get('modules', [])
         
-        if not target:
-            return jsonify({'error': 'Target is required'}), 400
+        # Validate input using Marshmallow schema
+        validated_data, errors = validate_request_data(ScanRequestSchema, data)
+        if errors:
+            return jsonify({'error': 'Validation failed', 'details': errors}), 400
         
-        if not modules:
-            return jsonify({'error': 'At least one module must be selected'}), 400
-        
-        # Validate target
-        if not validate_target(target):
-            return jsonify({'error': 'Invalid target format'}), 400
-            
-        # Validate ports
-        if not validate_ports(ports):
-            return jsonify({'error': 'Invalid port specification'}), 400
+        target = validated_data['target']
+        ports = validated_data['ports']
+        modules = validated_data['modules']
         
         # Create scan record
         scan_id = str(uuid.uuid4())
