@@ -6,39 +6,39 @@ set -e
 
 # Usage: ./encrypt_decrypt_aes256gcm.sh encrypt|decrypt KEY_FILE INPUT OUTPUT
 
-ACTION="$1"
-KEY_FILE="$2"
-INPUT="$3"
-OUTPUT="$4"
+CRYPTO_ACTION="$1"
+ENCRYPTION_KEY_FILE="$2"
+INPUT_FILE="$3"
+OUTPUT_FILE="$4"
 
-if [[ -z "$ACTION" || -z "$KEY_FILE" || -z "$INPUT" || -z "$OUTPUT" ]]; then
+if [[ -z "$CRYPTO_ACTION" || -z "$ENCRYPTION_KEY_FILE" || -z "$INPUT_FILE" || -z "$OUTPUT_FILE" ]]; then
   echo "Usage: $0 encrypt|decrypt KEY_FILE INPUT OUTPUT"
   exit 1
 fi
 
-KEY=$(xxd -p -c 256 "$KEY_FILE" | tr -d '\n' | cut -c1-64)
+ENCRYPTION_KEY=$(xxd -p -c 256 "$ENCRYPTION_KEY_FILE" | tr -d '\n' | cut -c1-64)
 
-if [[ "$ACTION" == "encrypt" ]]; then
-  NONCE=$(openssl rand -hex 12)
-  TAG=$(mktemp)
-  openssl enc -aes-256-gcm -nosalt -K "$KEY" -iv "$NONCE" -in "$INPUT" -out "$OUTPUT.enc" -tag "$TAG"
-  TAG_HEX=$(xxd -p "$TAG" | tr -d '\n')
-  rm "$TAG"
+if [[ "$CRYPTO_ACTION" == "encrypt" ]]; then
+  ENCRYPTION_NONCE=$(openssl rand -hex 12)
+  AUTHENTICATION_TAG_FILE=$(mktemp)
+  openssl enc -aes-256-gcm -nosalt -K "$ENCRYPTION_KEY" -iv "$ENCRYPTION_NONCE" -in "$INPUT_FILE" -out "$OUTPUT_FILE.enc" -tag "$AUTHENTICATION_TAG_FILE"
+  AUTHENTICATION_TAG_HEX=$(xxd -p "$AUTHENTICATION_TAG_FILE" | tr -d '\n')
+  rm "$AUTHENTICATION_TAG_FILE"
   # Store as hex: nonce:tag:ciphertext
-  echo -n "$NONCE:$TAG_HEX:" > "$OUTPUT"
-  cat "$OUTPUT.enc" | xxd -p | tr -d '\n' >> "$OUTPUT"
-  rm "$OUTPUT.enc"
+  echo -n "$ENCRYPTION_NONCE:$AUTHENTICATION_TAG_HEX:" > "$OUTPUT_FILE"
+  cat "$OUTPUT_FILE.enc" | xxd -p | tr -d '\n' >> "$OUTPUT_FILE"
+  rm "$OUTPUT_FILE.enc"
   echo "Encrypted and stored as: <nonce>:<tag>:<ciphertext> (hex)"
-elif [[ "$ACTION" == "decrypt" ]]; then
-  IFS=':' read -r NONCE TAG_HEX CIPHERTEXT_HEX < "$INPUT"
-  CIPHERTEXT_BIN=$(mktemp)
-  echo -n "$CIPHERTEXT_HEX" | xxd -r -p > "$CIPHERTEXT_BIN"
-  TAG=$(mktemp)
-  echo -n "$TAG_HEX" | xxd -r -p > "$TAG"
-  openssl enc -d -aes-256-gcm -nosalt -K "$KEY" -iv "$NONCE" -in "$CIPHERTEXT_BIN" -out "$OUTPUT" -tag "$TAG"
-  rm "$CIPHERTEXT_BIN" "$TAG"
-  echo "Decrypted to $OUTPUT"
+elif [[ "$CRYPTO_ACTION" == "decrypt" ]]; then
+  IFS=':' read -r ENCRYPTION_NONCE AUTHENTICATION_TAG_HEX CIPHERTEXT_HEX < "$INPUT_FILE"
+  CIPHERTEXT_BINARY_FILE=$(mktemp)
+  echo -n "$CIPHERTEXT_HEX" | xxd -r -p > "$CIPHERTEXT_BINARY_FILE"
+  AUTHENTICATION_TAG_FILE=$(mktemp)
+  echo -n "$AUTHENTICATION_TAG_HEX" | xxd -r -p > "$AUTHENTICATION_TAG_FILE"
+  openssl enc -d -aes-256-gcm -nosalt -K "$ENCRYPTION_KEY" -iv "$ENCRYPTION_NONCE" -in "$CIPHERTEXT_BINARY_FILE" -out "$OUTPUT_FILE" -tag "$AUTHENTICATION_TAG_FILE"
+  rm "$CIPHERTEXT_BINARY_FILE" "$AUTHENTICATION_TAG_FILE"
+  echo "Decrypted to $OUTPUT_FILE"
 else
-  echo "Unknown action: $ACTION"
+  echo "Unknown action: $CRYPTO_ACTION"
   exit 1
 fi
