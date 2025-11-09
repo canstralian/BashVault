@@ -13,16 +13,18 @@ import time
 import socket
 
 class DNSEnumerator:
-    def __init__(self, verbose=False, timeout=5):
+    def __init__(self, verbose=False, timeout=5, max_workers=20):
         """
         Initialize DNS enumerator
         
         Args:
             verbose (bool): Enable verbose output
             timeout (int): DNS query timeout in seconds
+            max_workers (int): Maximum number of parallel DNS queries (default: 20, reduced from 50)
         """
         self.verbose = verbose
         self.timeout = timeout
+        self.max_workers = max_workers
         self.resolver = dns.resolver.Resolver()
         self.resolver.timeout = timeout
         self.resolver.lifetime = timeout
@@ -192,8 +194,8 @@ class DNSEnumerator:
                 except:
                     return None
         
-        # Use ThreadPoolExecutor for parallel subdomain checking
-        with ThreadPoolExecutor(max_workers=50) as executor:
+        # Use ThreadPoolExecutor for parallel subdomain checking with controlled concurrency
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             future_to_subdomain = {
                 executor.submit(check_subdomain, sub): sub 
                 for sub in self.common_subdomains
@@ -235,19 +237,32 @@ class DNSEnumerator:
                             d = d.strip().lower()
                             if d.endswith(f'.{domain}') and d not in found_domains:
                                 found_domains.add(d)
-                                
-                                # Verify the subdomain exists
-                                try:
-                                    answers = self.resolver.resolve(d, 'A')
-                                    ips = [str(answer) for answer in answers]
-                                    subdomains.append({
-                                        'subdomain': d,
-                                        'type': 'A',
-                                        'records': ips,
-                                        'source': 'Certificate Transparency'
-                                    })
-                                except:
-                                    pass
+                
+                # Batch verify subdomains in parallel instead of sequentially
+                def verify_subdomain(subdomain):
+                    try:
+                        answers = self.resolver.resolve(subdomain, 'A')
+                        ips = [str(answer) for answer in answers]
+                        return {
+                            'subdomain': subdomain,
+                            'type': 'A',
+                            'records': ips,
+                            'source': 'Certificate Transparency'
+                        }
+                    except:
+                        return None
+                
+                # Use ThreadPoolExecutor for parallel verification
+                with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+                    future_to_domain = {
+                        executor.submit(verify_subdomain, d): d 
+                        for d in found_domains
+                    }
+                    
+                    for future in as_completed(future_to_domain):
+                        result = future.result()
+                        if result:
+                            subdomains.append(result)
         
         except Exception as e:
             if self.verbose:
