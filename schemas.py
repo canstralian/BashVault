@@ -17,7 +17,7 @@ class ScanRequestSchema(Schema):
     )
     ports = fields.Str(
         required=False,
-        missing="1-1000",
+        load_default="1-1000",
         validate=validate.Length(max=100)
     )
     modules = fields.List(
@@ -107,12 +107,12 @@ class ScanFilterSchema(Schema):
     limit = fields.Int(
         required=False,
         validate=validate.Range(min=1, max=100),
-        missing=10
+        load_default=10
     )
     offset = fields.Int(
         required=False,
         validate=validate.Range(min=0),
-        missing=0
+        load_default=0
     )
 
 
