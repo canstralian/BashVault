@@ -821,7 +821,8 @@ def main():
         print("Access the dashboard at: http://localhost:5001")
         
         port = int(os.environ.get('PORT', 5000))
-        app.run(host='0.0.0.0', port=port, debug=False, threaded=True)
+        # Bind to all interfaces is intentional for containerized/cloud deployment
+        app.run(host='0.0.0.0', port=port, debug=False, threaded=True)  # nosec B104
     except Exception as e:
         print(f"Failed to start application: {e}")
         cleanup()

@@ -247,12 +247,12 @@ class SSLAnalyzer:
                 except:
                     details['extensions'][ext_name] = 'Unable to parse'
             
-            # Certificate fingerprints
+            # Certificate fingerprints (used for identification, not security validation)
             cert_der = cert.public_bytes(encoding=x509.Encoding.DER)
             details['fingerprints'] = {
-                'sha1': hashlib.sha1(cert_der).hexdigest(),
-                'sha256': hashlib.sha256(cert_der).hexdigest(),
-                'md5': hashlib.md5(cert_der).hexdigest()
+                'sha1': hashlib.sha1(cert_der, usedforsecurity=False).hexdigest(),  # nosec B324
+                'sha256': hashlib.sha256(cert_der).hexdigest(),  # SHA256 is secure
+                'md5': hashlib.md5(cert_der, usedforsecurity=False).hexdigest()  # nosec B324
             }
         
         except Exception as e:
