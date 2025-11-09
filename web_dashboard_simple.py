@@ -18,6 +18,7 @@ from psycopg2.extras import RealDictCursor
 import secrets
 import atexit
 from contextlib import contextmanager
+from psycopg2 import pool
 
 # Import InfoGather modules
 from modules.network_scanner import NetworkScanner
@@ -46,6 +47,9 @@ results_lock = threading.RLock()
 # Use DATABASE_URL from environment (provided by Replit PostgreSQL)
 DATABASE_URL = os.environ.get('DATABASE_URL')
 
+# Database connection pool for better performance
+connection_pool = None
+
 def get_db_config():
     """Parse DATABASE_URL into connection parameters"""
     if DATABASE_URL:
@@ -69,17 +73,40 @@ def get_db_config():
             'port': int(os.environ.get('PGPORT', 5432))
         }
 
+def init_connection_pool():
+    """Initialize database connection pool for better performance"""
+    global connection_pool
+    try:
+        db_config = get_db_config()
+        connection_pool = pool.ThreadedConnectionPool(
+            minconn=2,
+            maxconn=20,
+            **db_config
+        )
+        print("Database connection pool initialized")
+    except Exception as e:
+        print(f"Failed to initialize connection pool: {e}")
+        raise
+
 # Initialize threat monitor
 threat_monitor = ThreatMonitor(verbose=True)
 threat_monitor.start_monitoring(check_interval=300)  # Check every 5 minutes
 
+# Memory cleanup scheduler
+cleanup_thread = None
+cleanup_active = False
+
 @contextmanager
 def get_db_connection():
-    """Context manager for database connections"""
+    """Context manager for database connections using connection pool"""
     conn = None
     try:
-        db_config = get_db_config()
-        conn = psycopg2.connect(**db_config)
+        if connection_pool:
+            conn = connection_pool.getconn()
+        else:
+            # Fallback to direct connection if pool is not initialized
+            db_config = get_db_config()
+            conn = psycopg2.connect(**db_config)
         yield conn
     except Exception as e:
         if conn:
@@ -87,13 +114,28 @@ def get_db_connection():
         raise e
     finally:
         if conn:
-            conn.close()
+            if connection_pool:
+                connection_pool.putconn(conn)
+            else:
+                conn.close()
 
 # Register cleanup function for application shutdown
 @atexit.register
 def cleanup():
     """Cleanup resources on application shutdown"""
+    global connection_pool, cleanup_active
     try:
+        # Stop memory cleanup scheduler
+        cleanup_active = False
+        
+        # Close connection pool
+        if connection_pool:
+            connection_pool.closeall()
+            print("Connection pool closed")
+        
+        # Stop threat monitoring
+        threat_monitor.stop_monitoring()
+        
         print("Application cleanup completed")
     except Exception as e:
         print(f"Cleanup error: {e}")
@@ -144,6 +186,15 @@ def init_database():
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
+            
+            # Create indexes for better query performance
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_scans_user_id ON scans(user_id)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_scans_status ON scans(status)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_scans_started_at ON scans(started_at DESC)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_scan_results_scan_id ON scan_results(scan_id)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_scans_user_status ON scans(user_id, status)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_scans_user_started ON scans(user_id, started_at DESC)')
             
             # Create default admin user if it doesn't exist
             cursor.execute('SELECT id FROM users WHERE username = %s', ('admin',))
@@ -303,14 +354,31 @@ def start_scan():
 
 def run_scan(scan_id, target, ports, modules):
     """Execute the security scan in background"""
+    conn = None
+    cursor = None
+    
     try:
         # Initialize scan status with thread safety
         with scans_lock:
             if scan_id in active_scans:
                 active_scans[scan_id]['status'] = 'running'
         
+        # Get a single database connection for the entire scan to reduce overhead
+        conn = None
+        try:
+            if connection_pool:
+                conn = connection_pool.getconn()
+            else:
+                db_config = get_db_config()
+                conn = psycopg2.connect(**db_config)
+            cursor = conn.cursor()
+        except Exception as db_e:
+            print(f"Failed to get database connection: {db_e}")
+            # Continue without database updates if connection fails
+        
         results = {}
         total_modules = len(modules)
+        batch_results = []  # Collect results for batch insert
         
         for i, module in enumerate(modules):
             # Update progress with thread safety
@@ -320,17 +388,15 @@ def run_scan(scan_id, target, ports, modules):
                     active_scans[scan_id]['progress'] = progress
                     active_scans[scan_id]['current_module'] = module
             
-            # Update database
-            try:
-                with get_db_connection() as conn:
-                    cursor = conn.cursor()
+            # Update database progress (only if we have a connection)
+            if cursor:
+                try:
                     cursor.execute('''
                         UPDATE scans SET progress = %s, current_module = %s WHERE id = %s
                     ''', (progress, module, scan_id))
                     conn.commit()
-                    cursor.close()
-            except Exception as db_e:
-                print(f"Database update error: {db_e}")
+                except Exception as db_e:
+                    print(f"Database update error: {db_e}")
             
             # Execute module scan
             try:
@@ -366,38 +432,38 @@ def run_scan(scan_id, target, ports, modules):
                     cloud_disc = CloudDiscovery()
                     results[module] = cloud_disc.discover_cloud_assets(target)
                 
-                # Store result in database
-                try:
-                    with get_db_connection() as conn:
-                        cursor = conn.cursor()
-                        cursor.execute('''
-                            INSERT INTO scan_results (scan_id, module_name, result_data)
-                            VALUES (%s, %s, %s)
-                        ''', (scan_id, module, json.dumps(results[module], default=str)))
-                        conn.commit()
-                        cursor.close()
-                except Exception as db_e:
-                    print(f"Result storage error: {db_e}")
+                # Collect results for batch insert
+                batch_results.append((scan_id, module, json.dumps(results[module], default=str)))
                 
             except Exception as e:
                 print(f"Module {module} execution error: {e}")
                 results[module] = {'error': str(e)}
+                batch_results.append((scan_id, module, json.dumps({'error': str(e)})))
+        
+        # Batch insert all results at once
+        if cursor and batch_results:
+            try:
+                cursor.executemany('''
+                    INSERT INTO scan_results (scan_id, module_name, result_data)
+                    VALUES (%s, %s, %s)
+                ''', batch_results)
+                conn.commit()
+            except Exception as db_e:
+                print(f"Batch result storage error: {db_e}")
         
         # Generate summary
         summary = generate_scan_summary(results)
         
-        # Update scan status to completed
-        try:
-            with get_db_connection() as conn:
-                cursor = conn.cursor()
+        # Update scan status to completed (use existing connection if available)
+        if cursor:
+            try:
                 cursor.execute('''
                     UPDATE scans SET status = %s, completed_at = %s, progress = %s, current_module = %s
                     WHERE id = %s
                 ''', ('completed', datetime.utcnow(), 100, 'Completed', scan_id))
                 conn.commit()
-                cursor.close()
-        except Exception as db_e:
-            print(f"Completion update error: {db_e}")
+            except Exception as db_e:
+                print(f"Completion update error: {db_e}")
         
         # Store results in memory for quick access with thread safety
         with results_lock:
@@ -426,24 +492,35 @@ def run_scan(scan_id, target, ports, modules):
         
     except Exception as e:
         print(f"Scan execution error: {e}")
-        # Handle scan failure
-        try:
-            with get_db_connection() as conn:
-                cursor = conn.cursor()
+        # Handle scan failure (use existing connection if available)
+        if cursor:
+            try:
                 cursor.execute('''
                     UPDATE scans SET status = %s, error_message = %s, completed_at = %s
                     WHERE id = %s
                 ''', ('failed', str(e), datetime.utcnow(), scan_id))
                 conn.commit()
-                cursor.close()
-        except Exception as db_e:
-            print(f"Error update failed: {db_e}")
+            except Exception as db_e:
+                print(f"Error update failed: {db_e}")
         
         # Update active scan status
         with scans_lock:
             if scan_id in active_scans:
                 active_scans[scan_id]['status'] = 'failed'
                 active_scans[scan_id]['error'] = str(e)
+    
+    finally:
+        # Return connection to pool
+        if conn:
+            try:
+                if cursor:
+                    cursor.close()
+                if connection_pool:
+                    connection_pool.putconn(conn)
+                else:
+                    conn.close()
+            except Exception as e:
+                print(f"Error closing connection: {e}")
 
 def generate_scan_summary(findings):
     """Generate summary statistics from scan findings"""
@@ -806,6 +883,46 @@ def cleanup_old_scan_results():
             new_results = dict(sorted_scans[:50])
             scan_results.clear()
             scan_results.update(new_results)
+            print(f"Cleaned up memory: removed {len(scan_results) - 50} old scan results")
+
+def start_memory_cleanup_scheduler():
+    """Start periodic memory cleanup in background"""
+    global cleanup_active, cleanup_thread
+    
+    def cleanup_loop():
+        while cleanup_active:
+            time.sleep(600)  # Run every 10 minutes
+            try:
+                cleanup_old_scan_results()
+                
+                # Also clean up completed active scans older than 1 hour
+                with scans_lock:
+                    current_time = datetime.utcnow()
+                    completed_scans_to_remove = []
+                    for scan_id, scan_info in active_scans.items():
+                        if scan_info.get('status') == 'completed':
+                            started_at_str = scan_info.get('started_at', '')
+                            if started_at_str:
+                                try:
+                                    started_at = datetime.fromisoformat(started_at_str)
+                                    if (current_time - started_at).total_seconds() > 3600:
+                                        completed_scans_to_remove.append(scan_id)
+                                except:
+                                    pass
+                    
+                    for scan_id in completed_scans_to_remove:
+                        del active_scans[scan_id]
+                    
+                    if completed_scans_to_remove:
+                        print(f"Cleaned up {len(completed_scans_to_remove)} old active scan entries")
+                        
+            except Exception as e:
+                print(f"Memory cleanup error: {e}")
+    
+    cleanup_active = True
+    cleanup_thread = threading.Thread(target=cleanup_loop, daemon=True)
+    cleanup_thread.start()
+    print("Memory cleanup scheduler started")
 
 def main():
     """Main application entry point"""
@@ -813,8 +930,14 @@ def main():
         # Set start time for uptime calculation
         app.start_time = time.time()
         
+        # Initialize connection pool
+        init_connection_pool()
+        
         # Initialize database tables
         init_database()
+        
+        # Start memory cleanup scheduler
+        start_memory_cleanup_scheduler()
         
         print("InfoGather Web Dashboard starting...")
         print("Access the dashboard at: http://localhost:5001")

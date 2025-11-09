@@ -308,6 +308,7 @@ class ThreatMonitor:
         """Get hash representing current IP state"""
         try:
             import socket
+            from concurrent.futures import ThreadPoolExecutor, as_completed
             
             # Try reverse DNS
             hostname = ""
@@ -316,20 +317,28 @@ class ThreatMonitor:
             except:
                 pass
             
-            # Basic port scan of common ports
+            # Basic port scan of common ports using parallel connections
             open_ports = []
             common_ports = [21, 22, 23, 25, 53, 80, 110, 443, 993, 995]
             
-            for port in common_ports:
+            def check_port(port):
+                """Check if a port is open"""
                 try:
                     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                     sock.settimeout(1)
                     result = sock.connect_ex((ip, port))
-                    if result == 0:
-                        open_ports.append(port)
                     sock.close()
+                    return port if result == 0 else None
                 except:
-                    pass
+                    return None
+            
+            # Use ThreadPoolExecutor for parallel port checking
+            with ThreadPoolExecutor(max_workers=10) as executor:
+                future_to_port = {executor.submit(check_port, port): port for port in common_ports}
+                for future in as_completed(future_to_port):
+                    result = future.result()
+                    if result is not None:
+                        open_ports.append(result)
             
             combined_data = json.dumps({
                 'hostname': hostname,
