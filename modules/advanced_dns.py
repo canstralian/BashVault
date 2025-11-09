@@ -242,7 +242,8 @@ class AdvancedDNS:
                 response_sets = {}
                 for resp in responses:
                     answers_str = json.dumps(resp['data'].get('answers', []), sort_keys=True)
-                    response_hash = hashlib.md5(answers_str.encode()).hexdigest()
+                    # MD5 used for fingerprinting/comparison only, not security
+                    response_hash = hashlib.md5(answers_str.encode(), usedforsecurity=False).hexdigest()  # nosec B324
 
                     if response_hash not in response_sets:
                         response_sets[response_hash] = []

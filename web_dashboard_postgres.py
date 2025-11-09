@@ -540,4 +540,7 @@ if __name__ == '__main__':
     print("Default login: admin / admin123")
     print("Access the dashboard at: http://localhost:5000")
     
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    # Use debug mode only in development
+    debug_mode = os.environ.get('FLASK_ENV') == 'development'
+    # Bind to all interfaces is intentional for containerized/cloud deployment
+    app.run(host='0.0.0.0', port=5000, debug=debug_mode)  # nosec B104
