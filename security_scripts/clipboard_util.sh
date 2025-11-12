@@ -2,7 +2,7 @@
 #!/usr/bin/env bash
 # Cross-platform clipboard copy and auto-clear
 
-detect_clipboard_cmd() {
+detect_clipboard_command() {
   if command -v pbcopy &>/dev/null; then
     echo "pbcopy"
   elif command -v xclip &>/dev/null; then
@@ -17,15 +17,15 @@ detect_clipboard_cmd() {
 }
 
 copy_to_clipboard() {
-  local data="$1"
-  local CLIP_CMD
-  CLIP_CMD=$(detect_clipboard_cmd)
-  if [[ -z "$CLIP_CMD" ]]; then
+  local clipboard_data="$1"
+  local clipboard_command
+  clipboard_command=$(detect_clipboard_command)
+  if [[ -z "$clipboard_command" ]]; then
     echo "No clipboard utility found."
     return 1
   fi
-  echo -n "$data" | eval "$CLIP_CMD"
+  echo -n "$clipboard_data" | eval "$clipboard_command"
   # Clear clipboard after 10 seconds asynchronously
-  (sleep 10; echo -n "" | eval "$CLIP_CMD") &
+  (sleep 10; echo -n "" | eval "$clipboard_command") &
   echo "Copied to clipboard. Will auto-clear in 10 seconds."
 }
