@@ -3,7 +3,7 @@
 flask==3.0.0
 flask-sqlalchemy==3.1.1
 flask-limiter==3.5.0
-werkzeug==3.0.1
+werkzeug==3.1.4
 
 # Database
 psycopg2-binary==2.9.9
@@ -48,7 +48,7 @@ flask==3.0.0
 flask-sqlalchemy==3.1.1
 psycopg2-binary==2.9.9
 SQLAlchemy==2.0.23
-werkzeug==3.0.1
+werkzeug==3.1.4
 argon2-cffi==23.1.0
 bcrypt==4.1.2
 click==8.1.7
